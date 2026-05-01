@@ -1,0 +1,16 @@
+/* Contact Form */
+.contact-form-section h2 {
+    margin-bottom: 2rem;
+    color: var(--secondary-color);
+}
+
+.contact-form-section h2 span {
+    color: var(--primary-color);
+}
+
+.contact-form {
+    background-color: white;
+    padding: 2rem;
+    border-radius: 10px;
+    box-shadow: var(--shadow);
+}

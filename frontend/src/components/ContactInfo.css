@@ -1,0 +1,47 @@
+/* Contact Info */
+.contact-info-section h2 {
+    margin-bottom: 2rem;
+    color: var(--secondary-color);
+}
+
+.contact-info-section h2 span {
+    color: var(--primary-color);
+}
+
+.contact-info {
+    background-color: white;
+    padding: 2rem;
+    border-radius: 10px;
+    box-shadow: var(--shadow);
+}
+
+.info-item {
+    margin-bottom: 2rem;
+}
+
+.info-item:last-child {
+    margin-bottom: 0;
+}
+
+.info-item h3 {
+    color: var(--primary-color);
+    margin-bottom: 0.5rem;
+    font-size: 1.1rem;
+}
+
+.info-item p {
+    color: var(--text-dark);
+    margin-bottom: 0.5rem;
+    line-height: 1.6;
+}
+
+.link {
+    color: var(--primary-color);
+    text-decoration: none;
+    font-weight: 600;
+    transition: var(--transition);
+}
+
+.link:hover {
+    color: #ff5722;
+}
