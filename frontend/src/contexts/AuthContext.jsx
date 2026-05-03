@@ -36,6 +36,7 @@ export const AuthProvider = ({ children }) => {
   };
 
   const login = () => {
+    // Redirect to backend OAuth endpoint
     window.location.href = 'https://gym-website-xtj6.onrender.com/auth/google';
   };
 
@@ -46,6 +47,8 @@ export const AuthProvider = ({ children }) => {
         credentials: 'include'
       });
       setUser(null);
+      // Redirect to login page after logout
+      window.location.href = '/login';
     } catch (error) {
       console.error('Logout failed:', error);
     }

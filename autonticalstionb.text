@@ -1,0 +1,103 @@
+✅ Google Authentication Added Successfully!
+I've implemented a complete Google OAuth authentication system for your gym website. Here's what I added:
+
+Backend Changes:
+✅ Passport.js with Google OAuth2 strategy
+✅ Session management with MongoDB store
+✅ User schema for storing Google user data
+✅ Authentication routes: /auth/google, /auth/google/callback, /auth/user, /auth/logout
+✅ CORS configuration for frontend communication
+Frontend Changes:
+✅ AuthContext for state management
+✅ Updated Navbar with login/logout buttons
+✅ User profile display with avatar
+✅ Responsive authentication UI
+
+
+
+
+
+🚀 Setup Instructions
+Step 1: Get Google OAuth Credentials
+Go to Google Cloud Console
+Create a new project or select existing
+Enable Google+ API and Google OAuth2 API
+Go to Credentials → Create Credentials → OAuth 2.0 Client IDs
+Set Application type: Web application
+Add Authorized redirect URIs:
+https://gym-website-xtj6.onrender.com/auth/google/callback
+http://localhost:5000/auth/google/callback (for local testing)
+
+Copy Client ID and Client Secret
+Step 2: Add Environment Variables to Render
+Go to your Render backend service → Environment → Add these variables:
+
+
+Key	Value
+GOOGLE_CLIENT_ID	Your Google Client ID
+GOOGLE_CLIENT_SECRET	Your Google Client Secret
+SESSION_SECRET	your-super-secret-session-key-here-change-this
+FRONTEND_URL	https://gym-website-eight-plum.vercel.app
+Step 3: Deploy Backend
+Render will auto-deploy when you push to GitHub (already done).
+
+Step 4: Test Authentication
+Go to your live site: https://gym-website-eight-plum.vercel.app/
+Click "Login with Google" in the navbar
+Complete Google OAuth flow
+You should see your profile picture and name in the navbar
+Click "Logout" to test logout
+🔧 How It Works
+Authentication Flow:
+User clicks "Login with Google"
+Redirected to Google OAuth
+Google redirects back with user data
+User profile stored in MongoDB
+Session created and maintained
+Frontend shows user info and logout option
+Security Features:
+✅ HTTPS only in production
+✅ Secure cookies with httpOnly
+✅ CORS protection
+✅ Session-based authentication
+✅ User data stored securely in MongoDB
+Database:
+New users collection stores Google user profiles
+Includes: googleId, displayName, email, picture, createdAt
+🎯 What You Can Do Now
+User Management: Track registered users
+Personalization: Show user-specific content
+Admin Features: Protect admin routes
+User Data: Access user profiles for contact forms
+📝 Next Steps
+Set up Google OAuth credentials (as above)
+Add environment variables to Render
+Test the login flow
+Customize user experience (optional)
+The authentication system is production-ready and will work seamlessly with your existing contact form and gym website! 🎉
+
+Let me know if you need help with any of these steps!
+
+You've used 52% of your weekly rate limit. Your weekly rate limit will reset on May 4 at 5:30 AM. Learn More
+
+Grok Code Fast 1 • 1x
+
+
+
+
+
+
+
+
+
+
+files modifies
+
+
+package.json - Added auth dependencies
+server.js - Added authentication logic
+.env.example - Added required environment variables
+AuthContext.jsx - New authentication context
+App.js - Wrapped with AuthProvider
+Navbar.jsx - Added auth buttons
+Navbar.css - Added auth styles

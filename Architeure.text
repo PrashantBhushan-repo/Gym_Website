@@ -113,6 +113,7 @@ Check your MongoDB Atlas dashboard → Collections to see the data!
 Local Development (Optional)
 If you want to test locally:
 
+
 Copy .env.example to backend/.env
 Fill in your MONGO_URI
 Run npm run dev in backend folder
@@ -126,6 +127,7 @@ Your gym website now has a fully functional contact form with database storage! 
 Let me know if you need help with any of these steps!
 
 Grok Code Fast 1 • 1x
+
 
 
 
