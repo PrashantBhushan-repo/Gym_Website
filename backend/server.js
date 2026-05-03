@@ -2,6 +2,10 @@ import express from "express";
 import cors from "cors";
 import mongoose from "mongoose";
 import dotenv from "dotenv";
+import passport from "passport";
+import session from "express-session";
+import MongoStore from "connect-mongo";
+import { Strategy as GoogleStrategy } from "passport-google-oauth20";
 
 // Load environment variables
 dotenv.config();
@@ -10,8 +14,31 @@ const app = express();
 const port = process.env.PORT || 5000;
 
 // Middleware
-app.use(cors());
+app.use(cors({
+  origin: process.env.FRONTEND_URL || "http://localhost:3000",
+  credentials: true
+}));
 app.use(express.json());
+
+// Session configuration
+app.use(session({
+  secret: process.env.SESSION_SECRET || "your-secret-key",
+  resave: false,
+  saveUninitialized: false,
+  store: MongoStore.create({
+    mongoUrl: process.env.MONGO_URI || "mongodb://localhost:27017/gym_website",
+    dbName: 'gym_website'
+  }),
+  cookie: {
+    maxAge: 24 * 60 * 60 * 1000, // 24 hours
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production"
+  }
+}));
+
+// Passport initialization
+app.use(passport.initialize());
+app.use(passport.session());
 
 // MongoDB connection
 const mongoURI = process.env.MONGO_URI || "mongodb://localhost:27017/gym_website";
@@ -34,6 +61,103 @@ const contactSchema = new mongoose.Schema({
 });
 
 const Contact = mongoose.model("Contact", contactSchema);
+
+// User Schema
+const userSchema = new mongoose.Schema({
+  googleId: { type: String, required: true, unique: true },
+  displayName: { type: String, required: true },
+  email: { type: String, required: true, unique: true },
+  picture: { type: String },
+  createdAt: { type: Date, default: Date.now }
+});
+
+const User = mongoose.model("User", userSchema);
+
+// Passport Google Strategy
+passport.use(new GoogleStrategy({
+  clientID: process.env.GOOGLE_CLIENT_ID,
+  clientSecret: process.env.GOOGLE_CLIENT_SECRET,
+  callbackURL: process.env.GOOGLE_CALLBACK_URL || "/auth/google/callback"
+}, async (accessToken, refreshToken, profile, done) => {
+  try {
+    // Check if user already exists
+    let user = await User.findOne({ googleId: profile.id });
+
+    if (user) {
+      return done(null, user);
+    }
+
+    // Create new user
+    user = new User({
+      googleId: profile.id,
+      displayName: profile.displayName,
+      email: profile.emails[0].value,
+      picture: profile.photos[0].value
+    });
+
+    await user.save();
+    return done(null, user);
+  } catch (error) {
+    return done(error, null);
+  }
+}));
+
+// Passport serialization
+passport.serializeUser((user, done) => {
+  done(null, user.id);
+});
+
+passport.deserializeUser(async (id, done) => {
+  try {
+    const user = await User.findById(id);
+    done(null, user);
+  } catch (error) {
+    done(error, null);
+  }
+});
+
+// Authentication Routes
+app.get("/auth/google",
+  passport.authenticate("google", { scope: ["profile", "email"] })
+);
+
+app.get("/auth/google/callback",
+  passport.authenticate("google", { failureRedirect: "/login" }),
+  (req, res) => {
+    // Successful authentication, redirect to frontend
+    res.redirect(process.env.FRONTEND_URL || "http://localhost:3000");
+  }
+);
+
+app.get("/auth/user", (req, res) => {
+  if (req.user) {
+    res.json({
+      user: {
+        id: req.user._id,
+        displayName: req.user.displayName,
+        email: req.user.email,
+        picture: req.user.picture
+      }
+    });
+  } else {
+    res.status(401).json({ message: "Not authenticated" });
+  }
+});
+
+app.post("/auth/logout", (req, res) => {
+  req.logout((err) => {
+    if (err) {
+      return res.status(500).json({ message: "Logout failed" });
+    }
+    req.session.destroy((err) => {
+      if (err) {
+        return res.status(500).json({ message: "Session destroy failed" });
+      }
+      res.clearCookie('connect.sid');
+      res.json({ message: "Logged out successfully" });
+    });
+  });
+});
 
 // API Routes
 app.get("/api/home", (req, res) => {

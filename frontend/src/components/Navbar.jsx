@@ -1,11 +1,12 @@
 import React, { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import './Navbar.css';
+import { useAuth } from '../contexts/AuthContext';
 import './Navbar.css';
 
 const Navbar = () => {
   const [isOpen, setIsOpen] = useState(false);
   const location = useLocation();
+  const { user, loading, login, logout } = useAuth();
 
   const toggleMenu = () => {
     setIsOpen(!isOpen);
@@ -13,6 +14,16 @@ const Navbar = () => {
 
   const closeMenu = () => {
     setIsOpen(false);
+  };
+
+  const handleLogin = () => {
+    login();
+    closeMenu();
+  };
+
+  const handleLogout = () => {
+    logout();
+    closeMenu();
   };
 
   return (
@@ -59,6 +70,38 @@ const Navbar = () => {
             >
               Contact
             </Link>
+          </li>
+          {/* Authentication Section */}
+          <li className="auth-section">
+            {!loading && (
+              user ? (
+                <div className="user-menu">
+                  <div className="user-info">
+                    {user.picture && (
+                      <img
+                        src={user.picture}
+                        alt={user.displayName}
+                        className="user-avatar"
+                      />
+                    )}
+                    <span className="user-name">{user.displayName}</span>
+                  </div>
+                  <button
+                    onClick={handleLogout}
+                    className="auth-btn logout-btn"
+                  >
+                    Logout
+                  </button>
+                </div>
+              ) : (
+                <button
+                  onClick={handleLogin}
+                  className="auth-btn login-btn"
+                >
+                  Login with Google
+                </button>
+              )
+            )}
           </li>
         </ul>
         <div className="hamburger" onClick={toggleMenu}>
