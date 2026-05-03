@@ -14,22 +14,39 @@ export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
 
-  // Check if user is authenticated on app load
+  // Check if user is authenticated on app load and after OAuth redirect
   useEffect(() => {
     checkAuthStatus();
+
+    // Check if coming back from OAuth callback
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('auth') === 'success') {
+      // Remove the auth param from URL
+      window.history.replaceState({}, document.title, window.location.pathname);
+      // Re-check auth status after a short delay to ensure session is set
+      setTimeout(checkAuthStatus, 500);
+    }
   }, []);
 
   const checkAuthStatus = async () => {
     try {
       const response = await fetch('https://gym-website-xtj6.onrender.com/auth/user', {
-        credentials: 'include'
+        method: 'GET',
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json'
+        }
       });
+      
       if (response.ok) {
         const data = await response.json();
         setUser(data.user);
+      } else {
+        setUser(null);
       }
     } catch (error) {
       console.error('Auth check failed:', error);
+      setUser(null);
     } finally {
       setLoading(false);
     }
@@ -51,6 +68,7 @@ export const AuthProvider = ({ children }) => {
       window.location.href = '/login';
     } catch (error) {
       console.error('Logout failed:', error);
+      setUser(null);
     }
   };
 
