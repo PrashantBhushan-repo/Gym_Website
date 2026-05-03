@@ -1,7 +1,6 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import './ServicesPage.css';
-import './ServicesPage.css';
 
 const ServicesPage = () => {
   const classes = [
@@ -71,7 +70,7 @@ const ServicesPage = () => {
           <h2>Ready to Get Started?</h2>
           <p>View our class schedule or book your first session today!</p>
           <div className="cta-buttons">
-            <a href="#" className="btn btn-primary">View Schedule</a>
+            <Link to="/contact" className="btn btn-primary">View Schedule</Link>
             <Link to="/contact" className="btn btn-secondary">Contact Us</Link>
           </div>
         </div>

@@ -1,7 +1,6 @@
-import React, { useState } from 'react';
+import React from 'react';
 import ContactForm from '../components/ContactForm';
 import ContactInfo from '../components/ContactInfo';
-import './ContactPage.css';
 import './ContactPage.css';
 
 const ContactPage = () => {

@@ -1,6 +1,5 @@
 import React from 'react';
 import './ContactInfo.css';
-import './ContactInfo.css';
 
 const ContactInfo = () => {
   return (
@@ -10,7 +9,7 @@ const ContactInfo = () => {
         <div className="info-item">
           <h3>📍 Location</h3>
           <p>123 Fitness Street<br />Gym City, GC 12345</p>
-          <a href="#" className="link">Get Directions</a>
+          <a href="https://www.google.com/maps" target="_blank" rel="noreferrer" className="link">Get Directions</a>
         </div>
         <div className="info-item">
           <h3>📞 Phone</h3>

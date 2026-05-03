@@ -1,7 +1,6 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import './Footer.css';
-import './Footer.css';
 
 const Footer = () => {
   return (
@@ -12,9 +11,9 @@ const Footer = () => {
             <h3>FIT<span>ZONE</span></h3>
             <p>Your journey to a healthier, stronger you starts here.</p>
             <div className="social-links">
-              <a href="#" aria-label="Facebook">f</a>
-              <a href="#" aria-label="Instagram">i</a>
-              <a href="#" aria-label="Twitter">t</a>
+              <a href="https://www.facebook.com" target="_blank" rel="noreferrer" aria-label="Facebook">f</a>
+              <a href="https://www.instagram.com" target="_blank" rel="noreferrer" aria-label="Instagram">i</a>
+              <a href="https://www.twitter.com" target="_blank" rel="noreferrer" aria-label="Twitter">t</a>
             </div>
           </div>
           <div className="footer-section">
