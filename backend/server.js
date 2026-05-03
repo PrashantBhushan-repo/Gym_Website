@@ -16,7 +16,9 @@ app.use(express.json());
 // MongoDB connection
 const mongoURI = process.env.MONGO_URI || "mongodb://localhost:27017/gym_website";
 
-mongoose.connect(mongoURI)
+mongoose.connect(mongoURI, {
+  dbName: 'gym_website'
+})
   .then(() => console.log("Connected to MongoDB"))
   .catch(err => console.error("MongoDB connection error:", err));
 
