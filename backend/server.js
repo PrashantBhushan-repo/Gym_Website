@@ -56,7 +56,10 @@ mongoose.connect(mongoURI, {
   dbName: 'gym_website'
 })
   .then(() => console.log("Connected to MongoDB"))
-  .catch(err => console.error("MongoDB connection error:", err));
+  .catch(err => {
+    console.log("MongoDB connection error:", err.message);
+    console.log("Continuing without database connection for development...");
+  });
 
 // Contact Schema
 const contactSchema = new mongoose.Schema({
