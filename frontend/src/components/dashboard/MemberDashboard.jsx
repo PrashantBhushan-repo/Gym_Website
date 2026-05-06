@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { apiUrl } from '../../config/api';
 import '../styles/dashboard.css';
 
 const MemberDashboard = ({ user }) => {
@@ -9,8 +10,7 @@ const MemberDashboard = ({ user }) => {
   useEffect(() => {
     const fetchDashboardData = async () => {
       try {
-        const apiUrl = process.env.REACT_APP_API_URL || 'http://localhost:5000';
-        const response = await fetch(`${apiUrl}/dashboard/member`, {
+        const response = await fetch(apiUrl('/dashboard/member'), {
           credentials: 'include'
         });
 

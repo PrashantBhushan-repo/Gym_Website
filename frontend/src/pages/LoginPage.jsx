@@ -1,10 +1,11 @@
 import React, { useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
+import { apiUrl } from '../config/api';
 import './LoginPage.css';
 
 const LoginPage = () => {
-  const { login, loading } = useAuth();
+  const { login, loading, checkAuthStatus } = useAuth();
   const navigate = useNavigate();
   const [loginMode, setLoginMode] = useState('google'); // 'google', 'password', 'admin'
   const [formData, setFormData] = useState({ email: '', password: '' });
@@ -25,8 +26,7 @@ const LoginPage = () => {
     setError('');
 
     try {
-      const apiUrl = process.env.REACT_APP_API_URL || 'http://localhost:5000';
-      const response = await fetch(`${apiUrl}/auth/login`, {
+      const response = await fetch(apiUrl('/auth/login'), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
@@ -38,6 +38,7 @@ const LoginPage = () => {
       const data = await response.json();
 
       if (response.ok) {
+        await checkAuthStatus();
         navigate('/dashboard');
       } else {
         setError(data.message || 'Login failed');
@@ -55,8 +56,7 @@ const LoginPage = () => {
     setError('');
 
     try {
-      const apiUrl = process.env.REACT_APP_API_URL || 'http://localhost:5000';
-      const response = await fetch(`${apiUrl}/auth/admin-verify`, {
+      const response = await fetch(apiUrl('/auth/admin-verify'), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
@@ -68,6 +68,7 @@ const LoginPage = () => {
       const data = await response.json();
 
       if (response.ok) {
+        await checkAuthStatus();
         navigate('/dashboard');
       } else {
         setError(data.message || 'Verification failed');
