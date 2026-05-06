@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { apiUrl } from '../config/api';
 import './ContactForm.css';
 import './ContactForm.css';
 
@@ -48,7 +49,7 @@ const ContactForm = () => {
     }
 
     try {
-      const response = await fetch('/contact', {
+      const response = await fetch(apiUrl('/contact'), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

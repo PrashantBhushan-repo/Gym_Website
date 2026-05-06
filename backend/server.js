@@ -7,12 +7,18 @@ import session from "express-session";
 import MongoStore from "connect-mongo";
 import { Strategy as GoogleStrategy } from "passport-google-oauth20";
 import bcrypt from "bcrypt";
+import dns from "node:dns";
 
 // Load environment variables
 dotenv.config();
 
+if (process.env.DNS_SERVERS) {
+  dns.setServers(process.env.DNS_SERVERS.split(",").map(server => server.trim()).filter(Boolean));
+}
+
 const app = express();
 const port = process.env.PORT || 5000;
+const mongoURI = process.env.MONGO_URI || process.env.MONGODB_URI || "mongodb://localhost:27017/gym_website";
 
 // Middleware
 app.set('trust proxy', 1);
@@ -30,7 +36,7 @@ app.use(session({
   resave: false,
   saveUninitialized: false,
   store: MongoStore.create({
-    mongoUrl: process.env.MONGO_URI || "mongodb://localhost:27017/gym_website",
+    mongoUrl: mongoURI,
     dbName: 'gym_website'
   }),
   cookie: {
@@ -46,8 +52,6 @@ app.use(passport.initialize());
 app.use(passport.session());
 
 // MongoDB connection
-const mongoURI = process.env.MONGO_URI || "mongodb://localhost:27017/gym_website";
-
 mongoose.connect(mongoURI, {
   dbName: 'gym_website'
 })

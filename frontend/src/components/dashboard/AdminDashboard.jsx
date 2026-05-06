@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { apiUrl } from '../../config/api';
 import '../styles/dashboard.css';
 
 const AdminDashboard = ({ user }) => {
@@ -9,7 +10,7 @@ const AdminDashboard = ({ user }) => {
   useEffect(() => {
     const fetchDashboardData = async () => {
       try {
-        const response = await fetch('/dashboard/admin', {
+        const response = await fetch(apiUrl('/dashboard/admin'), {
           credentials: 'include'
         });
 
