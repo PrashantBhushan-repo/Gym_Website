@@ -6,6 +6,7 @@ import passport from "passport";
 import session from "express-session";
 import MongoStore from "connect-mongo";
 import { Strategy as GoogleStrategy } from "passport-google-oauth20";
+import bcrypt from "bcrypt";
 
 // Load environment variables
 dotenv.config();
@@ -68,15 +69,31 @@ const Contact = mongoose.model("Contact", contactSchema);
 
 // User Schema
 const userSchema = new mongoose.Schema({
-  googleId: { type: String, required: true, unique: true },
+  googleId: { type: String, required: false, unique: true, sparse: true },
   displayName: { type: String, required: true },
   email: { type: String, required: true, unique: true },
   picture: { type: String },
+  password: { type: String, required: false }, // For password-based login
   role: { type: String, enum: ['member', 'trainer', 'admin'], default: 'member' },
+  isVerified: { type: Boolean, default: false }, // For existing users
   createdAt: { type: Date, default: Date.now }
 });
 
+// Pending Request Schema (for new user requests via contact form)
+const pendingRequestSchema = new mongoose.Schema({
+  firstName: { type: String, required: true },
+  lastName: { type: String, required: true },
+  email: { type: String, required: true },
+  phone: { type: String, default: "" },
+  interest: { type: String, default: "" },
+  message: { type: String, required: true },
+  requestedRole: { type: String, enum: ['member', 'trainer'], required: true },
+  submittedAt: { type: Date, default: Date.now },
+  status: { type: String, enum: ['pending', 'approved', 'rejected'], default: 'pending' }
+});
+
 const User = mongoose.model("User", userSchema);
+const PendingRequest = mongoose.model("PendingRequest", pendingRequestSchema);
 
 // Membership Schema
 const membershipSchema = new mongoose.Schema({
@@ -150,33 +167,45 @@ const paymentSchema = new mongoose.Schema({
 const Payment = mongoose.model("Payment", paymentSchema);
 
 // Passport Google Strategy
-passport.use(new GoogleStrategy({
-  clientID: process.env.GOOGLE_CLIENT_ID,
-  clientSecret: process.env.GOOGLE_CLIENT_SECRET,
-  callbackURL: process.env.GOOGLE_CALLBACK_URL || "/auth/google/callback"
-}, async (accessToken, refreshToken, profile, done) => {
-  try {
-    // Check if user already exists
-    let user = await User.findOne({ googleId: profile.id });
+// Passport Google Strategy (only if credentials are provided)
+if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
+  passport.use(new GoogleStrategy({
+    clientID: process.env.GOOGLE_CLIENT_ID,
+    clientSecret: process.env.GOOGLE_CLIENT_SECRET,
+    callbackURL: process.env.GOOGLE_CALLBACK_URL || "/auth/google/callback"
+  }, async (accessToken, refreshToken, profile, done) => {
+    try {
+      // Check if user already exists
+      let user = await User.findOne({ googleId: profile.id });
 
-    if (user) {
+      if (user) {
+        return done(null, user);
+      }
+
+      // Determine role based on email
+      let role = 'member';
+      const adminEmails = ['prashant.bhushan.tech@gmail.com', 'prashant189041830@gmail.com'];
+      if (adminEmails.includes(profile.emails[0].value)) {
+        role = 'admin';
+      }
+
+      // Create new user
+      user = new User({
+        googleId: profile.id,
+        displayName: profile.displayName,
+        email: profile.emails[0].value,
+        picture: profile.photos[0].value,
+        role: role,
+        isVerified: true
+      });
+
+      await user.save();
       return done(null, user);
+    } catch (error) {
+      return done(error, null);
     }
-
-    // Create new user
-    user = new User({
-      googleId: profile.id,
-      displayName: profile.displayName,
-      email: profile.emails[0].value,
-      picture: profile.photos[0].value
-    });
-
-    await user.save();
-    return done(null, user);
-  } catch (error) {
-    return done(error, null);
-  }
-}));
+  }));
+}
 
 // Passport serialization
 passport.serializeUser((user, done) => {
@@ -192,19 +221,21 @@ passport.deserializeUser(async (id, done) => {
   }
 });
 
-// Authentication Routes
-app.get("/auth/google",
-  passport.authenticate("google", { scope: ["profile", "email"] })
-);
+// Authentication Routes (Google OAuth only if credentials provided)
+if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
+  app.get("/auth/google",
+    passport.authenticate("google", { scope: ["profile", "email"] })
+  );
 
-app.get("/auth/google/callback",
-  passport.authenticate("google", { failureRedirect: "/login", failureMessage: true }),
-  (req, res) => {
-    // Successful authentication, redirect to frontend home
-    const frontendUrl = process.env.FRONTEND_URL || "http://localhost:3000";
-    res.redirect(`${frontendUrl}/?auth=success`);
-  }
-);
+  app.get("/auth/google/callback",
+    passport.authenticate("google", { failureRedirect: "/login", failureMessage: true }),
+    (req, res) => {
+      // Successful authentication, redirect to frontend home
+      const frontendUrl = process.env.FRONTEND_URL || "http://localhost:3000";
+      res.redirect(`${frontendUrl}/?auth=success`);
+    }
+  );
+}
 
 app.get("/auth/user", (req, res) => {
   if (req.user) {
@@ -237,6 +268,86 @@ app.post("/auth/logout", (req, res) => {
   });
 });
 
+// Password-based login for existing users
+app.post("/auth/login", async (req, res) => {
+  try {
+    const { email, password } = req.body;
+
+    if (!email || !password) {
+      return res.status(400).json({ message: "Email and password are required" });
+    }
+
+    const user = await User.findOne({ email, isVerified: true });
+    if (!user) {
+      return res.status(401).json({ message: "Invalid credentials" });
+    }
+
+    const isValidPassword = await bcrypt.compare(password, user.password);
+    if (!isValidPassword) {
+      return res.status(401).json({ message: "Invalid credentials" });
+    }
+
+    // Log in user
+    req.login(user, (err) => {
+      if (err) {
+        return res.status(500).json({ message: "Login failed" });
+      }
+      res.json({
+        user: {
+          id: user._id,
+          displayName: user.displayName,
+          email: user.email,
+          picture: user.picture,
+          role: user.role
+        }
+      });
+    });
+  } catch (error) {
+    console.error("Login error:", error);
+    res.status(500).json({ message: "Internal server error" });
+  }
+});
+
+// Admin verification for specific emails
+app.post("/auth/admin-verify", async (req, res) => {
+  try {
+    const { email, password } = req.body;
+    const adminEmails = ['prashant.bhushan.tech@gmail.com', 'prashant189041830@gmail.com'];
+
+    if (!adminEmails.includes(email) || password !== '130036') {
+      return res.status(401).json({ message: "Unauthorized" });
+    }
+
+    let user = await User.findOne({ email });
+    if (!user) {
+      user = new User({
+        displayName: email.split('@')[0],
+        email: email,
+        role: 'admin',
+        isVerified: true
+      });
+      await user.save();
+    }
+
+    req.login(user, (err) => {
+      if (err) {
+        return res.status(500).json({ message: "Admin verification failed" });
+      }
+      res.json({
+        user: {
+          id: user._id,
+          displayName: user.displayName,
+          email: user.email,
+          role: user.role
+        }
+      });
+    });
+  } catch (error) {
+    console.error("Admin verification error:", error);
+    res.status(500).json({ message: "Internal server error" });
+  }
+});
+
 // API Routes
 app.get("/api/home", (req, res) => {
   res.json({ message: "Welcome to Home Page" });
@@ -265,10 +376,10 @@ app.get("/api/contacts", async (req, res) => {
   }
 });
 
-// POST route for contact form submission
+// POST route for contact form submission (now handles role requests)
 app.post("/api/contact", async (req, res) => {
   try {
-    const { firstName, lastName, email, phone, interest, message } = req.body;
+    const { firstName, lastName, email, phone, interest, message, requestedRole } = req.body;
 
     // Basic validation
     if (!firstName || !lastName || !email || !message) {
@@ -287,7 +398,28 @@ app.post("/api/contact", async (req, res) => {
       });
     }
 
-    // Create new contact submission
+    // If role is requested, create pending request instead of contact
+    if (requestedRole && ['member', 'trainer'].includes(requestedRole)) {
+      const pendingRequest = new PendingRequest({
+        firstName,
+        lastName,
+        email,
+        phone: phone || "",
+        interest: interest || "",
+        message,
+        requestedRole
+      });
+
+      await pendingRequest.save();
+
+      return res.json({
+        success: true,
+        message: "Your request has been submitted. Admin will review it soon.",
+        requestId: pendingRequest._id
+      });
+    }
+
+    // Regular contact submission
     const submission = new Contact({
       firstName,
       lastName,
@@ -297,7 +429,6 @@ app.post("/api/contact", async (req, res) => {
       message
     });
 
-    // Save to database
     await submission.save();
 
     console.log("New contact submission saved:", submission);
@@ -317,7 +448,176 @@ app.post("/api/contact", async (req, res) => {
   }
 });
 
-// ========== DASHBOARD API ROUTES ==========
+// ========== ADMIN MANAGEMENT ROUTES ==========
+
+// Get pending requests
+app.get("/api/admin/pending-requests", async (req, res) => {
+  try {
+    if (!req.user || req.user.role !== 'admin') {
+      return res.status(403).json({ message: "Unauthorized - admin access required" });
+    }
+
+    const pendingRequests = await PendingRequest.find({ status: 'pending' }).sort({ submittedAt: -1 });
+    res.json({ success: true, pendingRequests });
+  } catch (error) {
+    console.error("Error fetching pending requests:", error);
+    res.status(500).json({ success: false, message: "Internal server error" });
+  }
+});
+
+// Approve pending request and create user
+app.post("/api/admin/approve-request/:requestId", async (req, res) => {
+  try {
+    if (!req.user || req.user.role !== 'admin') {
+      return res.status(403).json({ message: "Unauthorized - admin access required" });
+    }
+
+    const { requestId } = req.params;
+    const { password } = req.body;
+
+    const request = await PendingRequest.findById(requestId);
+    if (!request || request.status !== 'pending') {
+      return res.status(404).json({ success: false, message: "Request not found or already processed" });
+    }
+
+    // Check if user already exists
+    const existingUser = await User.findOne({ email: request.email });
+    if (existingUser) {
+      return res.status(400).json({ success: false, message: "User with this email already exists" });
+    }
+
+    // Hash password
+    const hashedPassword = await bcrypt.hash(password, 10);
+
+    // Create new user
+    const newUser = new User({
+      displayName: `${request.firstName} ${request.lastName}`,
+      email: request.email,
+      password: hashedPassword,
+      role: request.requestedRole,
+      isVerified: true
+    });
+
+    await newUser.save();
+
+    // Update request status
+    request.status = 'approved';
+    await request.save();
+
+    res.json({ success: true, message: "User created successfully", user: newUser });
+  } catch (error) {
+    console.error("Error approving request:", error);
+    res.status(500).json({ success: false, message: "Internal server error" });
+  }
+});
+
+// Reject pending request
+app.post("/api/admin/reject-request/:requestId", async (req, res) => {
+  try {
+    if (!req.user || req.user.role !== 'admin') {
+      return res.status(403).json({ message: "Unauthorized - admin access required" });
+    }
+
+    const { requestId } = req.params;
+    const request = await PendingRequest.findById(requestId);
+
+    if (!request || request.status !== 'pending') {
+      return res.status(404).json({ success: false, message: "Request not found or already processed" });
+    }
+
+    request.status = 'rejected';
+    await request.save();
+
+    res.json({ success: true, message: "Request rejected" });
+  } catch (error) {
+    console.error("Error rejecting request:", error);
+    res.status(500).json({ success: false, message: "Internal server error" });
+  }
+});
+
+// Add user manually (admin only)
+app.post("/api/admin/add-user", async (req, res) => {
+  try {
+    if (!req.user || req.user.role !== 'admin') {
+      return res.status(403).json({ message: "Unauthorized - admin access required" });
+    }
+
+    const { displayName, email, password, role } = req.body;
+
+    if (!displayName || !email || !password || !role) {
+      return res.status(400).json({ success: false, message: "All fields are required" });
+    }
+
+    // Check if user already exists
+    const existingUser = await User.findOne({ email });
+    if (existingUser) {
+      return res.status(400).json({ success: false, message: "User with this email already exists" });
+    }
+
+    // Hash password
+    const hashedPassword = await bcrypt.hash(password, 10);
+
+    const newUser = new User({
+      displayName,
+      email,
+      password: hashedPassword,
+      role,
+      isVerified: true
+    });
+
+    await newUser.save();
+
+    res.json({ success: true, message: "User added successfully", user: newUser });
+  } catch (error) {
+    console.error("Error adding user:", error);
+    res.status(500).json({ success: false, message: "Internal server error" });
+  }
+});
+
+// Delete user (admin only)
+app.delete("/api/admin/delete-user/:userId", async (req, res) => {
+  try {
+    if (!req.user || req.user.role !== 'admin') {
+      return res.status(403).json({ message: "Unauthorized - admin access required" });
+    }
+
+    const { userId } = req.params;
+
+    // Prevent deleting admin users
+    const userToDelete = await User.findById(userId);
+    if (!userToDelete) {
+      return res.status(404).json({ success: false, message: "User not found" });
+    }
+
+    if (userToDelete.role === 'admin') {
+      return res.status(403).json({ success: false, message: "Cannot delete admin users" });
+    }
+
+    await User.findByIdAndDelete(userId);
+
+    res.json({ success: true, message: "User deleted successfully" });
+  } catch (error) {
+    console.error("Error deleting user:", error);
+    res.status(500).json({ success: false, message: "Internal server error" });
+  }
+});
+
+// Get all users (admin only)
+app.get("/api/admin/users", async (req, res) => {
+  try {
+    if (!req.user || req.user.role !== 'admin') {
+      return res.status(403).json({ message: "Unauthorized - admin access required" });
+    }
+
+    const users = await User.find({}, '-password').sort({ createdAt: -1 });
+    res.json({ success: true, users });
+  } catch (error) {
+    console.error("Error fetching users:", error);
+    res.status(500).json({ success: false, message: "Internal server error" });
+  }
+});
+
+// ========== END ADMIN MANAGEMENT ROUTES ==========
 
 // MEMBER DASHBOARD
 // Get member dashboard data
@@ -399,7 +699,8 @@ app.get("/api/dashboard/admin", async (req, res) => {
     const totalTrainers = await User.countDocuments({ role: 'trainer' });
     const activeMemberships = await Membership.countDocuments({ isActive: true });
     const totalClasses = await Class.countDocuments();
-    const recentSignups = await User.find({ role: 'member' }).sort({ createdAt: -1 }).limit(10);
+    const pendingRequests = await PendingRequest.countDocuments({ status: 'pending' });
+    const recentSignups = await User.find({ role: { $in: ['member', 'trainer'] } }).sort({ createdAt: -1 }).limit(10);
     const totalRevenue = await Payment.aggregate([
       { $match: { status: 'completed' } },
       { $group: { _id: null, total: { $sum: '$amount' } } }
@@ -416,6 +717,7 @@ app.get("/api/dashboard/admin", async (req, res) => {
         totalTrainers,
         activeMemberships,
         totalClasses,
+        pendingRequests,
         totalRevenue: totalRevenue.length > 0 ? totalRevenue[0].total : 0,
         recentSignups,
         recentContacts,

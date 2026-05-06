@@ -9,7 +9,7 @@ const MemberDashboard = ({ user }) => {
   useEffect(() => {
     const fetchDashboardData = async () => {
       try {
-        const response = await fetch('/api/dashboard/member', {
+        const response = await fetch('/dashboard/member', {
           credentials: 'include'
         });
 

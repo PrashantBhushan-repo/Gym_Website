@@ -9,7 +9,8 @@ const ContactForm = () => {
     email: '',
     phone: '',
     interest: '',
-    message: ''
+    message: '',
+    requestedRole: '' // New field for role requests
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [notification, setNotification] = useState(null);
@@ -47,7 +48,7 @@ const ContactForm = () => {
     }
 
     try {
-      const response = await fetch('https://gym-website-xtj6.onrender.com/api/contact', {
+      const response = await fetch('/contact', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -65,7 +66,8 @@ const ContactForm = () => {
           email: '',
           phone: '',
           interest: '',
-          message: ''
+          message: '',
+          requestedRole: ''
         });
       } else {
         showNotification(data.message || 'Error submitting form. Please try again.', 'error');
@@ -145,6 +147,39 @@ const ContactForm = () => {
             <option value="free-pass">Free Day Pass</option>
             <option value="other">Other</option>
           </select>
+        </div>
+
+        {/* Role Request Section */}
+        <div className="form-group role-request">
+          <label>Request Account Access:</label>
+          <p className="role-description">
+            If you're interested in becoming a member or trainer, select your role below.
+            Your request will be reviewed by our admin team.
+          </p>
+          <div className="role-options">
+            <label className="role-option">
+              <input
+                type="radio"
+                name="requestedRole"
+                value="member"
+                checked={formData.requestedRole === 'member'}
+                onChange={handleChange}
+              />
+              <span className="role-label">Member</span>
+              <span className="role-description">Access to gym facilities and classes</span>
+            </label>
+            <label className="role-option">
+              <input
+                type="radio"
+                name="requestedRole"
+                value="trainer"
+                checked={formData.requestedRole === 'trainer'}
+                onChange={handleChange}
+              />
+              <span className="role-label">Trainer</span>
+              <span className="role-description">Lead classes and train members</span>
+            </label>
+          </div>
         </div>
         <div className="form-group">
           <label htmlFor="message">Message*</label>

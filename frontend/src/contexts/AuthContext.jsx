@@ -30,7 +30,7 @@ export const AuthProvider = ({ children }) => {
 
   const checkAuthStatus = async () => {
     try {
-      const response = await fetch('https://gym-website-xtj6.onrender.com/auth/user', {
+      const response = await fetch('/auth/user', {
         method: 'GET',
         credentials: 'include',
         headers: {
@@ -54,12 +54,12 @@ export const AuthProvider = ({ children }) => {
 
   const login = () => {
     // Redirect to backend OAuth endpoint
-    window.location.href = 'https://gym-website-xtj6.onrender.com/auth/google';
+    window.location.href = '/auth/google';
   };
 
   const logout = async () => {
     try {
-      await fetch('https://gym-website-xtj6.onrender.com/auth/logout', {
+      await fetch('/auth/logout', {
         method: 'POST',
         credentials: 'include'
       });

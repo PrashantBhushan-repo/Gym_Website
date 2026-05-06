@@ -9,7 +9,7 @@ const TrainerDashboard = ({ user }) => {
   useEffect(() => {
     const fetchDashboardData = async () => {
       try {
-        const response = await fetch('/api/dashboard/trainer', {
+        const response = await fetch('/dashboard/trainer', {
           credentials: 'include'
         });
 

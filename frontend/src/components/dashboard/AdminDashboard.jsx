@@ -9,7 +9,7 @@ const AdminDashboard = ({ user }) => {
   useEffect(() => {
     const fetchDashboardData = async () => {
       try {
-        const response = await fetch('/api/dashboard/admin', {
+        const response = await fetch('/dashboard/admin', {
           credentials: 'include'
         });
 
