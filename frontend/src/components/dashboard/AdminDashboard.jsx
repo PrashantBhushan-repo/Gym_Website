@@ -23,27 +23,27 @@ const AdminDashboard = ({ user }) => {
   });
   const [actionMessage, setActionMessage] = useState('');
 
-  useEffect(() => {
-    const fetchDashboardData = async () => {
-      try {
-        const response = await fetch(apiUrl('/dashboard/admin'), {
-          credentials: 'include'
-        });
+  const fetchDashboardData = async () => {
+    try {
+      const response = await fetch(apiUrl('/dashboard/admin'), {
+        credentials: 'include'
+      });
 
-        if (!response.ok) {
-          throw new Error('Failed to fetch dashboard data');
-        }
-
-        const result = await response.json();
-        setDashboardData(result.data);
-      } catch (err) {
-        setError(err.message);
-        console.error('Error fetching admin dashboard:', err);
-      } finally {
-        setLoading(false);
+      if (!response.ok) {
+        throw new Error('Failed to fetch dashboard data');
       }
-    };
 
+      const result = await response.json();
+      setDashboardData(result.data);
+    } catch (err) {
+      setError(err.message);
+      console.error('Error fetching admin dashboard:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
     fetchDashboardData();
   }, []);
 
@@ -69,6 +69,8 @@ const AdminDashboard = ({ user }) => {
         setFormData({ displayName: '', email: '', password: '', role: 'trainer' });
         setShowAddTrainer(false);
         setShowAddMember(false);
+        // Refresh dashboard data
+        fetchDashboardData();
       } else {
         setActionMessage(`✗ Error: ${result.message}`);
       }
@@ -91,6 +93,8 @@ const AdminDashboard = ({ user }) => {
         setActionMessage('✓ Class created successfully!');
         setClassData({ name: '', description: '', time: '', capacity: '' });
         setShowAddClass(false);
+        // Refresh dashboard data
+        fetchDashboardData();
       } else {
         setActionMessage(`✗ Error: ${result.message}`);
       }
