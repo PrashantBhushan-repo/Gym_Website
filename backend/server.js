@@ -349,24 +349,24 @@ app.post("/auth/admin-verify", async (req, res) => {
 });
 
 // API Routes
-app.get("/api/home", (req, res) => {
+app.get("/home", (req, res) => {
   res.json({ message: "Welcome to Home Page" });
 });
 
-app.get("/api/about", (req, res) => {
+app.get("/about", (req, res) => {
   res.json({ message: "About Us Page" });
 });
 
-app.get("/api/contact", (req, res) => {
+app.get("/contact", (req, res) => {
   res.json({ message: "Contact Us Page" });
 });
 
-app.get("/api/services", (req, res) => {
+app.get("/services", (req, res) => {
   res.json({ message: "Our Services" });
 });
 
 // GET route to retrieve all contact submissions (for admin)
-app.get("/api/contacts", async (req, res) => {
+app.get("/contacts", async (req, res) => {
   try {
     const contacts = await Contact.find().sort({ submittedAt: -1 });
     res.json({ success: true, contacts });
@@ -377,7 +377,7 @@ app.get("/api/contacts", async (req, res) => {
 });
 
 // POST route for contact form submission (now handles role requests)
-app.post("/api/contact", async (req, res) => {
+app.post("/contact", async (req, res) => {
   try {
     const { firstName, lastName, email, phone, interest, message, requestedRole } = req.body;
 
@@ -451,7 +451,7 @@ app.post("/api/contact", async (req, res) => {
 // ========== ADMIN MANAGEMENT ROUTES ==========
 
 // Get pending requests
-app.get("/api/admin/pending-requests", async (req, res) => {
+app.get("/admin/pending-requests", async (req, res) => {
   try {
     if (!req.user || req.user.role !== 'admin') {
       return res.status(403).json({ message: "Unauthorized - admin access required" });
@@ -466,7 +466,7 @@ app.get("/api/admin/pending-requests", async (req, res) => {
 });
 
 // Approve pending request and create user
-app.post("/api/admin/approve-request/:requestId", async (req, res) => {
+app.post("/admin/approve-request/:requestId", async (req, res) => {
   try {
     if (!req.user || req.user.role !== 'admin') {
       return res.status(403).json({ message: "Unauthorized - admin access required" });
@@ -512,7 +512,7 @@ app.post("/api/admin/approve-request/:requestId", async (req, res) => {
 });
 
 // Reject pending request
-app.post("/api/admin/reject-request/:requestId", async (req, res) => {
+app.post("/admin/reject-request/:requestId", async (req, res) => {
   try {
     if (!req.user || req.user.role !== 'admin') {
       return res.status(403).json({ message: "Unauthorized - admin access required" });
@@ -536,7 +536,7 @@ app.post("/api/admin/reject-request/:requestId", async (req, res) => {
 });
 
 // Add user manually (admin only)
-app.post("/api/admin/add-user", async (req, res) => {
+app.post("/admin/add-user", async (req, res) => {
   try {
     if (!req.user || req.user.role !== 'admin') {
       return res.status(403).json({ message: "Unauthorized - admin access required" });
@@ -575,7 +575,7 @@ app.post("/api/admin/add-user", async (req, res) => {
 });
 
 // Delete user (admin only)
-app.delete("/api/admin/delete-user/:userId", async (req, res) => {
+app.delete("/admin/delete-user/:userId", async (req, res) => {
   try {
     if (!req.user || req.user.role !== 'admin') {
       return res.status(403).json({ message: "Unauthorized - admin access required" });
@@ -603,7 +603,7 @@ app.delete("/api/admin/delete-user/:userId", async (req, res) => {
 });
 
 // Get all users (admin only)
-app.get("/api/admin/users", async (req, res) => {
+app.get("/admin/users", async (req, res) => {
   try {
     if (!req.user || req.user.role !== 'admin') {
       return res.status(403).json({ message: "Unauthorized - admin access required" });
@@ -621,7 +621,7 @@ app.get("/api/admin/users", async (req, res) => {
 
 // MEMBER DASHBOARD
 // Get member dashboard data
-app.get("/api/dashboard/member", async (req, res) => {
+app.get("/dashboard/member", async (req, res) => {
   try {
     if (!req.user) {
       return res.status(401).json({ message: "Not authenticated" });
@@ -656,7 +656,7 @@ app.get("/api/dashboard/member", async (req, res) => {
 
 // TRAINER DASHBOARD
 // Get trainer dashboard data
-app.get("/api/dashboard/trainer", async (req, res) => {
+app.get("/dashboard/trainer", async (req, res) => {
   try {
     if (!req.user || req.user.role !== 'trainer') {
       return res.status(403).json({ message: "Unauthorized - trainer access required" });
@@ -689,7 +689,7 @@ app.get("/api/dashboard/trainer", async (req, res) => {
 
 // ADMIN DASHBOARD
 // Get admin dashboard data
-app.get("/api/dashboard/admin", async (req, res) => {
+app.get("/dashboard/admin", async (req, res) => {
   try {
     if (!req.user || req.user.role !== 'admin') {
       return res.status(403).json({ message: "Unauthorized - admin access required" });
