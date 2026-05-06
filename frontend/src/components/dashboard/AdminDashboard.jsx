@@ -6,14 +6,12 @@ const AdminDashboard = ({ user }) => {
   const [dashboardData, setDashboardData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [showAddTrainer, setShowAddTrainer] = useState(false);
-  const [showAddMember, setShowAddMember] = useState(false);
+  const [activeUserForm, setActiveUserForm] = useState('');
   const [showAddClass, setShowAddClass] = useState(false);
   const [formData, setFormData] = useState({
     displayName: '',
     email: '',
-    password: '',
-    role: 'trainer'
+    password: ''
   });
   const [classData, setClassData] = useState({
     name: '',
@@ -21,7 +19,7 @@ const AdminDashboard = ({ user }) => {
     time: '',
     capacity: ''
   });
-  const [actionMessage, setActionMessage] = useState('');
+  const [actionMessage, setActionMessage] = useState({ type: '', text: '' });
 
   const fetchDashboardData = async () => {
     try {
@@ -50,12 +48,8 @@ const AdminDashboard = ({ user }) => {
   const handleAddUser = async (e) => {
     e.preventDefault();
     try {
-      const userData = { ...formData };
-      if (showAddMember) {
-        userData.role = 'member';
-      } else if (showAddTrainer) {
-        userData.role = 'trainer';
-      }
+      const role = activeUserForm === 'member' ? 'member' : 'trainer';
+      const userData = { ...formData, role };
 
       const response = await fetch(apiUrl('/admin/add-user'), {
         method: 'POST',
@@ -65,17 +59,15 @@ const AdminDashboard = ({ user }) => {
       });
       const result = await response.json();
       if (response.ok) {
-        setActionMessage(`✓ ${userData.role} added successfully!`);
-        setFormData({ displayName: '', email: '', password: '', role: 'trainer' });
-        setShowAddTrainer(false);
-        setShowAddMember(false);
-        // Refresh dashboard data
+        setActionMessage({ type: 'success', text: `${role.charAt(0).toUpperCase() + role.slice(1)} added successfully!` });
+        setFormData({ displayName: '', email: '', password: '' });
+        setActiveUserForm('');
         fetchDashboardData();
       } else {
-        setActionMessage(`✗ Error: ${result.message}`);
+        setActionMessage({ type: 'error', text: result.message || 'Unable to add user' });
       }
     } catch (err) {
-      setActionMessage(`✗ Error: ${err.message}`);
+      setActionMessage({ type: 'error', text: err.message || 'Internal server error' });
     }
   };
 
