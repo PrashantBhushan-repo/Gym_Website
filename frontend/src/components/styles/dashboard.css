@@ -1,0 +1,382 @@
+/* ========== SHARED DASHBOARD STYLES ========== */
+
+.dashboard-loading-card,
+.dashboard-error-card {
+  background: white;
+  padding: 40px;
+  border-radius: 10px;
+  text-align: center;
+  font-size: 1.1rem;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.dashboard-error-card {
+  color: #e74c3c;
+}
+
+.dashboard-loading-card {
+  color: #667eea;
+}
+
+/* Stats Grid */
+.dashboard-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 20px;
+  margin-bottom: 40px;
+}
+
+.stat-card {
+  background: white;
+  padding: 25px;
+  border-radius: 10px;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  border-left: 5px solid #667eea;
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+.stat-card:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 8px 12px rgba(0, 0, 0, 0.15);
+}
+
+.stat-card h3 {
+  margin: 0 0 10px 0;
+  color: #333;
+  font-size: 0.95rem;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.stat-value {
+  margin: 15px 0 8px 0;
+  color: #667eea;
+  font-size: 2.5rem;
+  font-weight: bold;
+}
+
+.stat-detail {
+  margin: 0;
+  color: #999;
+  font-size: 0.9rem;
+}
+
+/* Dashboard Sections */
+.dashboard-section {
+  background: white;
+  padding: 30px;
+  border-radius: 10px;
+  margin-bottom: 30px;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+.dashboard-section h2 {
+  margin-top: 0;
+  margin-bottom: 20px;
+  color: #333;
+  font-size: 1.5rem;
+  border-bottom: 2px solid #667eea;
+  padding-bottom: 10px;
+}
+
+.no-data {
+  text-align: center;
+  color: #999;
+  font-size: 1rem;
+  padding: 20px;
+}
+
+/* Cards Lists */
+.workouts-list,
+.classes-list,
+.signups-list,
+.contacts-list,
+.progress-list,
+.payments-list {
+  display: grid;
+  gap: 15px;
+}
+
+.workout-card,
+.class-card,
+.signup-card,
+.contact-card,
+.progress-card {
+  background: #f8f9fa;
+  border: 1px solid #e9ecef;
+  border-radius: 8px;
+  padding: 20px;
+  transition: border-color 0.3s ease;
+}
+
+.workout-card:hover,
+.class-card:hover,
+.signup-card:hover,
+.contact-card:hover,
+.progress-card:hover {
+  border-color: #667eea;
+}
+
+/* Workout Card */
+.workout-card h4,
+.class-card h4,
+.contact-card h4 {
+  margin: 0 0 10px 0;
+  color: #333;
+}
+
+.workout-header,
+.class-header,
+.progress-header,
+.contact-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 15px;
+}
+
+.workout-header h4,
+.class-header h4 {
+  margin: 0;
+}
+
+.workout-duration,
+.class-badge {
+  background: #667eea;
+  color: white;
+  padding: 5px 12px;
+  border-radius: 20px;
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.client-name {
+  background: #764ba2;
+  color: white;
+  padding: 5px 12px;
+  border-radius: 20px;
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.exercises ul,
+.class-members ul {
+  margin: 10px 0;
+  padding-left: 20px;
+  color: #666;
+}
+
+.exercises li,
+.class-members li {
+  margin-bottom: 8px;
+  line-height: 1.5;
+}
+
+.assigned-date,
+.progress-date,
+.contact-date,
+.contact-email,
+.contact-phone,
+.contact-interest,
+.class-schedule,
+.class-description,
+.members-label,
+.client-info {
+  margin: 5px 0;
+  color: #666;
+  font-size: 0.95rem;
+}
+
+.contact-message {
+  background: white;
+  padding: 10px;
+  border-radius: 5px;
+  margin-top: 10px;
+  color: #555;
+  line-height: 1.6;
+  font-style: italic;
+}
+
+.progress-details {
+  display: flex;
+  gap: 15px;
+  flex-wrap: wrap;
+  margin: 10px 0;
+}
+
+.progress-details span {
+  background: #e9ecef;
+  padding: 8px 12px;
+  border-radius: 5px;
+  color: #555;
+  font-size: 0.9rem;
+}
+
+.progress-notes {
+  margin: 10px 0 0 0;
+  color: #666;
+  font-style: italic;
+  font-size: 0.95rem;
+}
+
+.status-badge {
+  padding: 6px 12px;
+  border-radius: 20px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  text-transform: capitalize;
+}
+
+.status-badge.completed {
+  background: #d4edda;
+  color: #155724;
+}
+
+.status-badge.pending {
+  background: #fff3cd;
+  color: #856404;
+}
+
+.status-badge.failed {
+  background: #f8d7da;
+  color: #721c24;
+}
+
+/* Tables */
+.stats-table,
+.payments-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 15px;
+}
+
+.stats-table table,
+.payments-table table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.stats-table th,
+.stats-table td,
+.payments-table th,
+.payments-table td {
+  padding: 12px;
+  text-align: left;
+  border-bottom: 1px solid #e9ecef;
+}
+
+.stats-table thead,
+.payments-table thead {
+  background: #f8f9fa;
+}
+
+.stats-table th,
+.payments-table th {
+  font-weight: 600;
+  color: #333;
+}
+
+.stats-table tbody tr:hover,
+.payments-table tbody tr:hover {
+  background: #f8f9fa;
+}
+
+/* Action Buttons */
+.action-buttons {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 15px;
+  margin-top: 15px;
+}
+
+.action-btn {
+  background: #667eea;
+  color: white;
+  border: none;
+  padding: 12px 20px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 0.95rem;
+  font-weight: 600;
+  transition: background 0.3s ease, transform 0.2s ease;
+}
+
+.action-btn:hover {
+  background: #764ba2;
+  transform: translateY(-2px);
+}
+
+.action-btn:active {
+  transform: translateY(0);
+}
+
+/* System Info */
+.system-info {
+  background: #f8f9fa;
+  padding: 15px;
+  border-radius: 8px;
+  color: #666;
+}
+
+.system-info p {
+  margin: 8px 0;
+}
+
+.system-info strong {
+  color: #333;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .dashboard-stats {
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 15px;
+  }
+
+  .stat-card {
+    padding: 15px;
+  }
+
+  .stat-value {
+    font-size: 1.8rem;
+  }
+
+  .dashboard-section {
+    padding: 20px;
+  }
+
+  .dashboard-section h2 {
+    font-size: 1.2rem;
+  }
+
+  .action-buttons {
+    grid-template-columns: 1fr;
+  }
+
+  .workout-header,
+  .class-header,
+  .progress-header,
+  .contact-header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .workout-duration,
+  .class-badge,
+  .client-name {
+    margin-top: 10px;
+  }
+
+  .stats-table th,
+  .stats-table td,
+  .payments-table th,
+  .payments-table td {
+    padding: 8px;
+    font-size: 0.9rem;
+  }
+
+  .progress-details {
+    flex-direction: column;
+    gap: 8px;
+  }
+}

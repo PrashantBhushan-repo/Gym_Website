@@ -9,6 +9,7 @@ import HomePage from './pages/HomePage';
 import AboutPage from './pages/AboutPage';
 import ServicesPage from './pages/ServicesPage';
 import ContactPage from './pages/ContactPage';
+import DashboardPage from './pages/DashboardPage';
 import './App.css';
 
 function App() {
@@ -31,6 +32,7 @@ function App() {
                     <Route path="/about" element={<ProtectedRoute element={<AboutPage />} />} />
                     <Route path="/services" element={<ProtectedRoute element={<ServicesPage />} />} />
                     <Route path="/contact" element={<ProtectedRoute element={<ContactPage />} />} />
+                    <Route path="/dashboard" element={<ProtectedRoute element={<DashboardPage />} />} />
                     <Route path="*" element={<Navigate to="/" replace />} />
                   </Routes>
                   <Footer />

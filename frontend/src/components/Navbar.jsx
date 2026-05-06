@@ -71,6 +71,17 @@ const Navbar = () => {
               Contact
             </Link>
           </li>
+          {user && (
+            <li>
+              <Link
+                to="/dashboard"
+                className={`nav-link ${location.pathname === '/dashboard' ? 'active' : ''}`}
+                onClick={closeMenu}
+              >
+                Dashboard
+              </Link>
+            </li>
+          )}
           {/* Authentication Section */}
           <li className="auth-section">
             {!loading && (

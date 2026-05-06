@@ -72,10 +72,82 @@ const userSchema = new mongoose.Schema({
   displayName: { type: String, required: true },
   email: { type: String, required: true, unique: true },
   picture: { type: String },
+  role: { type: String, enum: ['member', 'trainer', 'admin'], default: 'member' },
   createdAt: { type: Date, default: Date.now }
 });
 
 const User = mongoose.model("User", userSchema);
+
+// Membership Schema
+const membershipSchema = new mongoose.Schema({
+  userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+  planName: { type: String, enum: ['Basic', 'Premium', 'VIP'], default: 'Basic' },
+  startDate: { type: Date, default: Date.now },
+  renewalDate: { type: Date, required: true },
+  isActive: { type: Boolean, default: true },
+  price: { type: Number, required: true },
+  createdAt: { type: Date, default: Date.now }
+});
+
+const Membership = mongoose.model("Membership", membershipSchema);
+
+// Classes Schema
+const classSchema = new mongoose.Schema({
+  trainerID: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+  className: { type: String, required: true },
+  description: { type: String },
+  schedule: { type: String, required: true }, // e.g., "Mon, Wed, Fri - 6:00 PM"
+  capacity: { type: Number, default: 20 },
+  enrolledMembers: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
+  createdAt: { type: Date, default: Date.now }
+});
+
+const Class = mongoose.model("Class", classSchema);
+
+// Workouts Schema
+const workoutSchema = new mongoose.Schema({
+  trainerID: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+  clientID: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+  workoutName: { type: String, required: true },
+  exercises: [
+    {
+      name: String,
+      sets: Number,
+      reps: Number,
+      weight: String
+    }
+  ],
+  duration: { type: Number }, // in minutes
+  assignedDate: { type: Date, default: Date.now }
+});
+
+const Workout = mongoose.model("Workout", workoutSchema);
+
+// Client Progress Schema
+const progressSchema = new mongoose.Schema({
+  clientID: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+  trainerID: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+  weight: Number,
+  bodyFat: Number,
+  muscleGain: Number,
+  strength: String, // e.g., "Bench Press: 185 lbs"
+  notes: String,
+  recordedDate: { type: Date, default: Date.now }
+});
+
+const Progress = mongoose.model("Progress", progressSchema);
+
+// Payment Schema
+const paymentSchema = new mongoose.Schema({
+  userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+  amount: { type: Number, required: true },
+  method: { type: String, enum: ['credit_card', 'debit_card', 'paypal'], required: true },
+  status: { type: String, enum: ['pending', 'completed', 'failed'], default: 'pending' },
+  invoiceId: String,
+  paymentDate: { type: Date, default: Date.now }
+});
+
+const Payment = mongoose.model("Payment", paymentSchema);
 
 // Passport Google Strategy
 passport.use(new GoogleStrategy({
@@ -141,7 +213,8 @@ app.get("/auth/user", (req, res) => {
         id: req.user._id,
         displayName: req.user.displayName,
         email: req.user.email,
-        picture: req.user.picture
+        picture: req.user.picture,
+        role: req.user.role
       }
     });
   } else {
@@ -243,6 +316,123 @@ app.post("/api/contact", async (req, res) => {
     });
   }
 });
+
+// ========== DASHBOARD API ROUTES ==========
+
+// MEMBER DASHBOARD
+// Get member dashboard data
+app.get("/api/dashboard/member", async (req, res) => {
+  try {
+    if (!req.user) {
+      return res.status(401).json({ message: "Not authenticated" });
+    }
+
+    const membership = await Membership.findOne({ userId: req.user._id });
+    const workouts = await Workout.find({ clientID: req.user._id }).sort({ assignedDate: -1 }).limit(5);
+    const progress = await Progress.find({ clientID: req.user._id }).sort({ recordedDate: -1 }).limit(10);
+    const enrolledClasses = await Class.find({ enrolledMembers: req.user._id });
+    const payments = await Payment.find({ userId: req.user._id }).sort({ paymentDate: -1 }).limit(5);
+
+    res.json({
+      success: true,
+      data: {
+        membership,
+        workouts,
+        progress,
+        enrolledClasses,
+        payments,
+        user: {
+          displayName: req.user.displayName,
+          email: req.user.email,
+          picture: req.user.picture
+        }
+      }
+    });
+  } catch (error) {
+    console.error("Error fetching member dashboard:", error);
+    res.status(500).json({ success: false, message: "Internal server error" });
+  }
+});
+
+// TRAINER DASHBOARD
+// Get trainer dashboard data
+app.get("/api/dashboard/trainer", async (req, res) => {
+  try {
+    if (!req.user || req.user.role !== 'trainer') {
+      return res.status(403).json({ message: "Unauthorized - trainer access required" });
+    }
+
+    const assignedClasses = await Class.find({ trainerID: req.user._id }).populate('enrolledMembers', 'displayName email');
+    const assignedWorkouts = await Workout.find({ trainerID: req.user._id }).populate('clientID', 'displayName email');
+    const clients = await Workout.distinct('clientID', { trainerID: req.user._id });
+    const clientProgress = await Progress.find({ trainerID: req.user._id }).sort({ recordedDate: -1 }).limit(20);
+
+    res.json({
+      success: true,
+      data: {
+        assignedClasses,
+        assignedWorkouts,
+        totalClients: clients.length,
+        clientProgress,
+        trainer: {
+          displayName: req.user.displayName,
+          email: req.user.email,
+          picture: req.user.picture
+        }
+      }
+    });
+  } catch (error) {
+    console.error("Error fetching trainer dashboard:", error);
+    res.status(500).json({ success: false, message: "Internal server error" });
+  }
+});
+
+// ADMIN DASHBOARD
+// Get admin dashboard data
+app.get("/api/dashboard/admin", async (req, res) => {
+  try {
+    if (!req.user || req.user.role !== 'admin') {
+      return res.status(403).json({ message: "Unauthorized - admin access required" });
+    }
+
+    const totalMembers = await User.countDocuments({ role: 'member' });
+    const totalTrainers = await User.countDocuments({ role: 'trainer' });
+    const activeMemberships = await Membership.countDocuments({ isActive: true });
+    const totalClasses = await Class.countDocuments();
+    const recentSignups = await User.find({ role: 'member' }).sort({ createdAt: -1 }).limit(10);
+    const totalRevenue = await Payment.aggregate([
+      { $match: { status: 'completed' } },
+      { $group: { _id: null, total: { $sum: '$amount' } } }
+    ]);
+    const recentContacts = await Contact.find().sort({ submittedAt: -1 }).limit(10);
+    const membershipStats = await Membership.aggregate([
+      { $group: { _id: '$planName', count: { $sum: 1 } } }
+    ]);
+
+    res.json({
+      success: true,
+      data: {
+        totalMembers,
+        totalTrainers,
+        activeMemberships,
+        totalClasses,
+        totalRevenue: totalRevenue.length > 0 ? totalRevenue[0].total : 0,
+        recentSignups,
+        recentContacts,
+        membershipStats,
+        admin: {
+          displayName: req.user.displayName,
+          email: req.user.email
+        }
+      }
+    });
+  } catch (error) {
+    console.error("Error fetching admin dashboard:", error);
+    res.status(500).json({ success: false, message: "Internal server error" });
+  }
+});
+
+// ========== END DASHBOARD ROUTES ==========
 
 app.listen(port, () => {
   console.log(`Backend server running on port ${port}`);
