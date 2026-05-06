@@ -578,6 +578,35 @@ app.post("/admin/add-user", async (req, res) => {
   }
 });
 
+// Add class (admin only)
+app.post("/admin/add-class", async (req, res) => {
+  try {
+    if (!req.user || req.user.role !== 'admin') {
+      return res.status(403).json({ message: "Unauthorized - admin access required" });
+    }
+
+    const { name, description, time, capacity } = req.body;
+
+    if (!name || !time) {
+      return res.status(400).json({ success: false, message: "Class name and time are required" });
+    }
+
+    const newClass = new Class({
+      className: name,
+      description: description || '',
+      schedule: time,
+      capacity: capacity || 20
+    });
+
+    await newClass.save();
+
+    res.json({ success: true, message: "Class created successfully", class: newClass });
+  } catch (error) {
+    console.error("Error creating class:", error);
+    res.status(500).json({ success: false, message: "Internal server error" });
+  }
+});
+
 // Delete user (admin only)
 app.delete("/admin/delete-user/:userId", async (req, res) => {
   try {
