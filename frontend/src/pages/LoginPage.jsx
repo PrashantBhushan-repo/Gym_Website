@@ -25,7 +25,8 @@ const LoginPage = () => {
     setError('');
 
     try {
-      const response = await fetch('/auth/login', {
+      const apiUrl = process.env.REACT_APP_API_URL || 'http://localhost:5000';
+      const response = await fetch(`${apiUrl}/auth/login`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
@@ -54,7 +55,8 @@ const LoginPage = () => {
     setError('');
 
     try {
-      const response = await fetch('/auth/admin-verify', {
+      const apiUrl = process.env.REACT_APP_API_URL || 'http://localhost:5000';
+      const response = await fetch(`${apiUrl}/auth/admin-verify`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'

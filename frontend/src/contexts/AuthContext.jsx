@@ -30,7 +30,8 @@ export const AuthProvider = ({ children }) => {
 
   const checkAuthStatus = async () => {
     try {
-      const response = await fetch('/auth/user', {
+      const apiUrl = process.env.REACT_APP_API_URL || 'http://localhost:5000';
+      const response = await fetch(`${apiUrl}/auth/user`, {
         method: 'GET',
         credentials: 'include',
         headers: {
@@ -53,13 +54,15 @@ export const AuthProvider = ({ children }) => {
   };
 
   const login = () => {
+    const apiUrl = process.env.REACT_APP_API_URL || 'http://localhost:5000';
     // Redirect to backend OAuth endpoint
-    window.location.href = '/auth/google';
+    window.location.href = `${apiUrl}/auth/google`;
   };
 
   const logout = async () => {
     try {
-      await fetch('/auth/logout', {
+      const apiUrl = process.env.REACT_APP_API_URL || 'http://localhost:5000';
+      await fetch(`${apiUrl}/auth/logout`, {
         method: 'POST',
         credentials: 'include'
       });

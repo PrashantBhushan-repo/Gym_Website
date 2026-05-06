@@ -9,7 +9,8 @@ const MemberDashboard = ({ user }) => {
   useEffect(() => {
     const fetchDashboardData = async () => {
       try {
-        const response = await fetch('/dashboard/member', {
+        const apiUrl = process.env.REACT_APP_API_URL || 'http://localhost:5000';
+        const response = await fetch(`${apiUrl}/dashboard/member`, {
           credentials: 'include'
         });
 
