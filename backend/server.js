@@ -559,6 +559,10 @@ app.post("/admin/add-user", async (req, res) => {
       return res.status(400).json({ success: false, message: "Invalid role" });
     }
 
+    if (typeof password !== 'string' || password.length < 6) {
+      return res.status(400).json({ success: false, message: "Password must be at least 6 characters" });
+    }
+
     // Check if user already exists
     const existingUser = await User.findOne({ email });
     if (existingUser) {
@@ -576,7 +580,15 @@ app.post("/admin/add-user", async (req, res) => {
       isVerified: true
     });
 
-    await newUser.save();
+    try {
+      await newUser.save();
+    } catch (saveError) {
+      console.error("Error saving new user:", saveError);
+      if (saveError.code === 11000) {
+        return res.status(400).json({ success: false, message: "User with this email already exists" });
+      }
+      return res.status(500).json({ success: false, message: "Unable to add user" });
+    }
 
     res.json({ success: true, message: "User added successfully", user: newUser });
   } catch (error) {

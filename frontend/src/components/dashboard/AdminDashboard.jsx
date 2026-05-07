@@ -49,6 +49,7 @@ const AdminDashboard = ({ user }) => {
 
   const handleAddUser = async (e) => {
     e.preventDefault();
+    setActionMessage({ type: '', text: '' });
     try {
       const userData = { ...formData, role: addUserRole };
 
@@ -76,6 +77,7 @@ const AdminDashboard = ({ user }) => {
 
   const handleAddClass = async (e) => {
     e.preventDefault();
+    setActionMessage({ type: '', text: '' });
     try {
       const response = await fetch(apiUrl('/admin/add-class'), {
         method: 'POST',
@@ -85,7 +87,7 @@ const AdminDashboard = ({ user }) => {
       });
       const result = await response.json();
       if (response.ok) {
-        setActionMessage('✓ Class created successfully!');
+        setActionMessage({ type: 'success', text: 'Class created successfully!' });
         setClassData({ name: '', description: '', time: '', capacity: '' });
         setShowAddClass(false);
         // Refresh dashboard data
