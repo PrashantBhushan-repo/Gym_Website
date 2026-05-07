@@ -6,7 +6,9 @@ const AdminDashboard = ({ user }) => {
   const [dashboardData, setDashboardData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [activeUserForm, setActiveUserForm] = useState('');
+  const [addUserRole, setAddUserRole] = useState('trainer');
+  const [showAddTrainer, setShowAddTrainer] = useState(false);
+  const [showAddMember, setShowAddMember] = useState(false);
   const [showAddClass, setShowAddClass] = useState(false);
   const [formData, setFormData] = useState({
     displayName: '',
@@ -48,8 +50,7 @@ const AdminDashboard = ({ user }) => {
   const handleAddUser = async (e) => {
     e.preventDefault();
     try {
-      const role = activeUserForm === 'member' ? 'member' : 'trainer';
-      const userData = { ...formData, role };
+      const userData = { ...formData, role: addUserRole };
 
       const response = await fetch(apiUrl('/admin/add-user'), {
         method: 'POST',
@@ -59,9 +60,11 @@ const AdminDashboard = ({ user }) => {
       });
       const result = await response.json();
       if (response.ok) {
-        setActionMessage({ type: 'success', text: `${role.charAt(0).toUpperCase() + role.slice(1)} added successfully!` });
+        setActionMessage({ type: 'success', text: `${addUserRole.charAt(0).toUpperCase() + addUserRole.slice(1)} added successfully!` });
         setFormData({ displayName: '', email: '', password: '' });
-        setActiveUserForm('');
+        setAddUserRole('trainer');
+        setShowAddTrainer(false);
+        setShowAddMember(false);
         fetchDashboardData();
       } else {
         setActionMessage({ type: 'error', text: result.message || 'Unable to add user' });
@@ -88,10 +91,10 @@ const AdminDashboard = ({ user }) => {
         // Refresh dashboard data
         fetchDashboardData();
       } else {
-        setActionMessage(`✗ Error: ${result.message}`);
+        setActionMessage({ type: 'error', text: result.message || 'Unable to create class' });
       }
     } catch (err) {
-      setActionMessage(`✗ Error: ${err.message}`);
+      setActionMessage({ type: 'error', text: err.message || 'Internal server error' });
     }
   };
 
@@ -223,16 +226,16 @@ const AdminDashboard = ({ user }) => {
       {/* Admin Actions */}
       <div className="dashboard-section">
         <h2>Admin Actions</h2>
-        {actionMessage && (
+        {actionMessage.text && (
             <div className="action-message" style={{ 
               padding: '15px', 
               marginBottom: '20px', 
               borderRadius: '8px',
-              background: actionMessage.includes('✓') ? '#d4edda' : '#f8d7da',
-              color: actionMessage.includes('✓') ? '#155724' : '#721c24',
-              border: `1px solid ${actionMessage.includes('✓') ? '#c3e6cb' : '#f5c6cb'}`
+              background: actionMessage.type === 'success' ? '#d4edda' : '#f8d7da',
+              color: actionMessage.type === 'success' ? '#155724' : '#721c24',
+              border: `1px solid ${actionMessage.type === 'success' ? '#c3e6cb' : '#f5c6cb'}`
             }}>
-              {actionMessage}
+              {actionMessage.text}
             </div>
           )}
           
@@ -241,6 +244,7 @@ const AdminDashboard = ({ user }) => {
               <button 
                 className="action-button"
                 onClick={() => {
+                  setAddUserRole('trainer');
                   setShowAddTrainer(!showAddTrainer);
                   setShowAddMember(false);
                   setShowAddClass(false);
@@ -273,7 +277,7 @@ const AdminDashboard = ({ user }) => {
                       onChange={(e) => setFormData({...formData, password: e.target.value})}
                       required
                     />
-                    <input type="hidden" value="trainer" />
+                    <input type="hidden" name="role" value="trainer" />
                     <button type="submit" className="form-submit-btn">Add Trainer</button>
                   </form>
                 </div>
@@ -284,6 +288,7 @@ const AdminDashboard = ({ user }) => {
               <button 
                 className="action-button"
                 onClick={() => {
+                  setAddUserRole('member');
                   setShowAddMember(!showAddMember);
                   setShowAddTrainer(false);
                   setShowAddClass(false);
@@ -316,7 +321,7 @@ const AdminDashboard = ({ user }) => {
                       onChange={(e) => setFormData({...formData, password: e.target.value})}
                       required
                     />
-                    <input type="hidden" value="member" />
+                    <input type="hidden" name="role" value="member" />
                     <button type="submit" className="form-submit-btn">Add Member</button>
                   </form>
                 </div>
