@@ -591,11 +591,7 @@ app.post("/admin/add-user", async (req, res) => {
     } catch (saveError) {
       console.error("Error saving new user:", saveError);
       if (saveError.code === 11000) {
-        const duplicateField = saveError.keyValue ? Object.keys(saveError.keyValue)[0] : 'email';
-        const duplicateMessage = duplicateField === 'email'
-          ? 'User with this email already exists'
-          : `Duplicate value for field: ${duplicateField}`;
-        return res.status(400).json({ success: false, message: duplicateMessage });
+        return res.status(400).json({ success: false, message: "User with this email already exists" });
       }
       return res.status(500).json({ success: false, message: "Unable to add user" });
     }
