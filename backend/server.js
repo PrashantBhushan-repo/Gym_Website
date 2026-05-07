@@ -555,6 +555,10 @@ app.post("/admin/add-user", async (req, res) => {
       return res.status(400).json({ success: false, message: "All fields are required" });
     }
 
+    if (!['member', 'trainer', 'admin'].includes(role)) {
+      return res.status(400).json({ success: false, message: "Invalid role" });
+    }
+
     // Check if user already exists
     const existingUser = await User.findOne({ email });
     if (existingUser) {
