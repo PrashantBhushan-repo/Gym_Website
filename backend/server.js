@@ -78,7 +78,7 @@ const Contact = mongoose.model("Contact", contactSchema);
 const userSchema = new mongoose.Schema({
   googleId: { type: String, required: false, unique: true, sparse: true },
   displayName: { type: String, required: true },
-  email: { type: String, required: true, unique: true },
+  email: { type: String, required: true, unique: true, lowercase: true, trim: true },
   picture: { type: String },
   password: { type: String, required: false }, // For password-based login
   role: { type: String, enum: ['member', 'trainer', 'admin'], default: 'member' },
@@ -568,12 +568,12 @@ app.post("/admin/add-user", async (req, res) => {
       return res.status(400).json({ success: false, message: "Password must be at least 6 characters" });
     }
 
-    // Check if user already exists (normalize email)
-    // const existingUser = await User.findOne({ email });
-    // if (existingUser) {
-    //   console.log('duplicate email detected', email, existingUser._id.toString());
-    //   return res.status(400).json({ success: false, message: "User with this email already exists" });
-    // }
+// Check if user already exists using normalized email
+    const existingUser = await User.findOne({ email: { $regex: `^${email}$`, $options: 'i' } });
+    if (existingUser) {
+      console.log('duplicate email detected', email, existingUser._id.toString(), existingUser.email);
+      return res.status(400).json({ success: false, message: "User with this email already exists" });
+    }
 
     // Hash password
     const hashedPassword = await bcrypt.hash(password, 10);
@@ -591,7 +591,11 @@ app.post("/admin/add-user", async (req, res) => {
     } catch (saveError) {
       console.error("Error saving new user:", saveError);
       if (saveError.code === 11000) {
-        return res.status(400).json({ success: false, message: "User with this email already exists" });
+        const duplicateField = saveError.keyValue ? Object.keys(saveError.keyValue)[0] : 'email';
+        const duplicateMessage = duplicateField === 'email'
+          ? 'User with this email already exists'
+          : `Duplicate value for field: ${duplicateField}`;
+        return res.status(400).json({ success: false, message: duplicateMessage });
       }
       return res.status(500).json({ success: false, message: "Unable to add user" });
     }
