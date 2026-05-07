@@ -76,7 +76,7 @@ const Contact = mongoose.model("Contact", contactSchema);
 
 // User Schema
 const userSchema = new mongoose.Schema({
-  googleId: { type: String, required: false, unique: true, sparse: true },
+  googleId: { type: String, required: false, sparse: true },
   displayName: { type: String, required: true },
   email: { type: String, required: true, unique: true, lowercase: true, trim: true },
   picture: { type: String },
