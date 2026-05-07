@@ -590,6 +590,7 @@ app.post("/admin/add-user", async (req, res) => {
       await newUser.save();
     } catch (saveError) {
       console.error("Error saving new user:", saveError);
+      console.error("saveError.keyValue:", saveError.keyValue);
       if (saveError.code === 11000) {
         return res.status(400).json({ success: false, message: "User with this email already exists" });
       }
