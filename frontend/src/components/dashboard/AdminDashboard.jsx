@@ -51,7 +51,12 @@ const AdminDashboard = ({ user }) => {
     e.preventDefault();
     setActionMessage({ type: '', text: '' });
     try {
-      const userData = { ...formData, role: addUserRole };
+      const userData = {
+        displayName: formData.displayName.trim(),
+        email: formData.email.trim().toLowerCase(),
+        password: formData.password,
+        role: addUserRole
+      };
 
       const response = await fetch(apiUrl('/admin/add-user'), {
         method: 'POST',

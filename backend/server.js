@@ -549,7 +549,12 @@ app.post("/admin/add-user", async (req, res) => {
       return res.status(403).json({ message: "Unauthorized - admin access required" });
     }
 
-    const { displayName, email, password, role } = req.body;
+    const displayName = req.body.displayName?.trim();
+    const email = req.body.email?.trim().toLowerCase();
+    const password = req.body.password;
+    const role = req.body.role;
+
+    console.log('admin add-user request', { displayName, email, role });
 
     if (!displayName || !email || !password || !role) {
       return res.status(400).json({ success: false, message: "All fields are required" });
@@ -563,9 +568,10 @@ app.post("/admin/add-user", async (req, res) => {
       return res.status(400).json({ success: false, message: "Password must be at least 6 characters" });
     }
 
-    // Check if user already exists
+    // Check if user already exists (normalize email)
     const existingUser = await User.findOne({ email });
     if (existingUser) {
+      console.log('duplicate email detected', email, existingUser._id.toString());
       return res.status(400).json({ success: false, message: "User with this email already exists" });
     }
 
