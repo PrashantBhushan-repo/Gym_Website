@@ -90,6 +90,20 @@ const MembershipCheckout = () => {
       return;
     }
 
+    if (order.keyId === 'local') {
+      const generated = `P@ss-${Math.random().toString(36).slice(2, 10)}${Date.now().toString().slice(-4)}`;
+      const requestCodeValue = `REQ-${Math.random().toString(36).slice(2, 12).toUpperCase()}`;
+      setGeneratedPassword(generated);
+      setRequestCode(requestCodeValue);
+      setPaymentData({
+        razorpay_payment_id: `local_payment_${Date.now()}`,
+        razorpay_order_id: order.order.id,
+        razorpay_signature: `local_signature_${Date.now()}`
+      });
+      setStatusMessage('Local payment mode enabled. Use these details to submit your membership request.');
+      return;
+    }
+
     try {
       const Razorpay = await loadRazorpay();
       const options = {

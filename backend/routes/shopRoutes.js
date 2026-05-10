@@ -71,13 +71,19 @@ const shopProducts = [
   }
 ];
 
-const emailTransporter = nodemailer.createTransport({
-  service: 'gmail',
-  auth: {
-    user: process.env.EMAIL_USER,
-    pass: process.env.EMAIL_PASS
-  }
-});
+const emailEnabled = process.env.EMAIL_USER && process.env.EMAIL_PASS;
+const emailFrom = process.env.EMAIL_USER
+  ? `"FitZone Team" <${process.env.EMAIL_USER}>`
+  : '"FitZone Team" <no-reply@fitzone.local>';
+const emailTransporter = emailEnabled
+  ? nodemailer.createTransport({
+      service: 'gmail',
+      auth: {
+        user: process.env.EMAIL_USER,
+        pass: process.env.EMAIL_PASS
+      }
+    })
+  : nodemailer.createTransport({ jsonTransport: true });
 
 router.get('/products', (req, res) => {
   res.json({ success: true, products: shopProducts });
@@ -126,10 +132,10 @@ router.post('/order', async (req, res) => {
 
     try {
       console.log(`Attempting to send shop order confirmation email to: ${email}`);
-      console.log(`Email transporter configured for user: ${process.env.EMAIL_USER ? 'Set' : 'Not set'}`);
+      console.log(`Email transporter configured for user: ${emailEnabled ? 'Set' : 'Not set'}`);
 
       const mailOptions = {
-        from: `"FitZone Team" <${process.env.EMAIL_USER}>`,
+        from: emailFrom,
         to: email,
         subject: 'FitZone Order Confirmation - Order Placed Successfully!',
         headers: {
@@ -180,7 +186,7 @@ router.post('/order', async (req, res) => {
       console.error('❌ Shop order email error:', emailError);
       console.error('Email error details:', emailError.message);
       console.error('Email details:', {
-        from: process.env.EMAIL_USER,
+        from: emailFrom,
         to: email,
         subject: 'FitZone Order Confirmation'
       });
