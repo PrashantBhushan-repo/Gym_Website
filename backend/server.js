@@ -26,8 +26,27 @@ const mongoURI = process.env.MONGO_URI || process.env.MONGODB_URI || "mongodb://
 
 // Middleware
 app.set('trust proxy', 1);
+const rawFrontendUrls = process.env.FRONTEND_URL || "http://localhost:3000,https://your-vercel-app.vercel.app";
+const allowedOrigins = rawFrontendUrls
+  .split(',')
+  .map((origin) => origin.trim())
+  .filter(Boolean);
+if (!allowedOrigins.includes('http://localhost:3000')) {
+  allowedOrigins.push('http://localhost:3000');
+}
+if (!allowedOrigins.includes('http://127.0.0.1:3000')) {
+  allowedOrigins.push('http://127.0.0.1:3000');
+}
 app.use(cors({
-  origin: process.env.FRONTEND_URL || ["http://localhost:3000", "https://your-vercel-app.vercel.app"],
+  origin: (origin, callback) => {
+    if (!origin) {
+      return callback(null, true);
+    }
+    if (allowedOrigins.includes(origin)) {
+      return callback(null, true);
+    }
+    return callback(new Error(`CORS origin denied: ${origin}`));
+  },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE'],
   allowedHeaders: ['Content-Type']
@@ -67,17 +86,24 @@ mongoose.connect(mongoURI, {
   });
 
 // Email transporter setup
-const emailTransporter = nodemailer.createTransport({
-  service: 'gmail',
-  auth: {
-    user: process.env.EMAIL_USER,
-    pass: process.env.EMAIL_PASS
-  }
-});
+const emailEnabled = process.env.EMAIL_USER && process.env.EMAIL_PASS;
+const emailFrom = process.env.EMAIL_USER
+  ? `"FitZone Team" <${process.env.EMAIL_USER}>`
+  : '"FitZone Team" <no-reply@fitzone.local>';
+const emailTransporter = emailEnabled
+  ? nodemailer.createTransport({
+      service: 'gmail',
+      auth: {
+        user: process.env.EMAIL_USER,
+        pass: process.env.EMAIL_PASS
+      }
+    })
+  : nodemailer.createTransport({ jsonTransport: true });
 
 // Initialize Razorpay only if credentials are provided
+const razorpayEnabled = process.env.RAZORPAY_KEY_ID && process.env.RAZORPAY_KEY_SECRET;
 let razorpay = null;
-if (process.env.RAZORPAY_KEY_ID && process.env.RAZORPAY_KEY_SECRET) {
+if (razorpayEnabled) {
   razorpay = new Razorpay({
     key_id: process.env.RAZORPAY_KEY_ID,
     key_secret: process.env.RAZORPAY_KEY_SECRET
@@ -625,8 +651,13 @@ app.post("/razorpay/order", async (req, res) => {
       return res.status(400).json({ success: false, message: "Invalid membership plan" });
     }
 
-    if (!process.env.RAZORPAY_KEY_ID || !process.env.RAZORPAY_KEY_SECRET) {
-      return res.status(500).json({ success: false, message: "Razorpay keys are not configured" });
+    if (!razorpayEnabled) {
+      const localOrder = {
+        id: `local_order_${Date.now()}`,
+        amount: planPrices[planName] * 100,
+        currency: 'INR'
+      };
+      return res.json({ success: true, order: localOrder, keyId: 'local' });
     }
 
     if (!razorpay) {
@@ -676,13 +707,16 @@ app.post("/membership/request", async (req, res) => {
       return res.status(400).json({ success: false, message: "Missing payment details" });
     }
 
-    const expectedSignature = crypto
-      .createHmac('sha256', process.env.RAZORPAY_KEY_SECRET)
-      .update(`${orderId}|${paymentId}`)
-      .digest('hex');
+    const isLocalPayment = !razorpayEnabled;
+    if (!isLocalPayment) {
+      const expectedSignature = crypto
+        .createHmac('sha256', process.env.RAZORPAY_KEY_SECRET)
+        .update(`${orderId}|${paymentId}`)
+        .digest('hex');
 
-    if (expectedSignature !== signature) {
-      return res.status(400).json({ success: false, message: "Payment verification failed" });
+      if (expectedSignature !== signature) {
+        return res.status(400).json({ success: false, message: "Payment verification failed" });
+      }
     }
 
     const request = new MembershipRequest({
@@ -787,7 +821,7 @@ app.post("/admin/membership-requests/:requestId/approve", async (req, res) => {
         : '';
 
       const mailOptions = {
-        from: process.env.EMAIL_USER,
+        from: emailFrom,
         to: request.email,
         subject: 'Your FitZone membership is approved',
         html: `
@@ -814,7 +848,7 @@ app.post("/admin/membership-requests/:requestId/approve", async (req, res) => {
     } catch (emailError) {
       console.error('❌ Error sending membership approval email:', emailError);
       console.error('Email details:', {
-        from: process.env.EMAIL_USER,
+        from: emailFrom,
         to: request.email,
         subject: 'Your FitZone membership is approved'
       });
@@ -978,7 +1012,7 @@ app.post("/admin/approve-request/:requestId", async (req, res) => {
       console.log(`Attempting to send welcome email to: ${request.email}`);
       const roleMessage = request.isMembershipRequest ? 'member' : (request.requestedRole === 'trainer' ? 'trainer' : 'member');
       const mailOptions = {
-        from: process.env.EMAIL_USER,
+        from: emailFrom,
         to: request.email,
         subject: 'Welcome to FitZone - Your Account Details',
         html: `
@@ -1009,7 +1043,7 @@ app.post("/admin/approve-request/:requestId", async (req, res) => {
     } catch (emailError) {
       console.error('❌ Error sending welcome email:', emailError);
       console.error('Email details:', {
-        from: process.env.EMAIL_USER,
+        from: emailFrom,
         to: request.email,
         subject: 'Welcome to FitZone - Your Account Details'
       });
