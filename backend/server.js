@@ -922,6 +922,9 @@ app.post("/admin/approve-request/:requestId", async (req, res) => {
     let user = await User.findOne({ email: request.email });
     let generatedPassword = null;
     let passwordToUse = password;
+    const approvedRole = request.isMembershipRequest
+      ? 'member'
+      : (['member', 'trainer'].includes(request.requestedRole) ? request.requestedRole : 'member');
 
     if (request.isMembershipRequest) {
       // For membership payments, use the generated password from the request unless admin overrides it
@@ -995,7 +998,7 @@ app.post("/admin/approve-request/:requestId", async (req, res) => {
         displayName: `${request.firstName} ${request.lastName}`,
         email: request.email,
         password: hashedPassword,
-        role: request.requestedRole,
+        role: approvedRole,
         isVerified: true
       });
 
@@ -1010,7 +1013,7 @@ app.post("/admin/approve-request/:requestId", async (req, res) => {
     // Send welcome email with password
     try {
       console.log(`Attempting to send welcome email to: ${request.email}`);
-      const roleMessage = request.isMembershipRequest ? 'member' : (request.requestedRole === 'trainer' ? 'trainer' : 'member');
+      const roleMessage = request.isMembershipRequest ? 'member' : approvedRole;
       const mailOptions = {
         from: emailFrom,
         to: request.email,
@@ -1053,6 +1056,12 @@ app.post("/admin/approve-request/:requestId", async (req, res) => {
     res.json({ success: true, message: "User created successfully", user, generatedPassword });
   } catch (error) {
     console.error("Error approving request:", error);
+    if (error.name === 'ValidationError') {
+      return res.status(400).json({ success: false, message: error.message });
+    }
+    if (error.code === 11000) {
+      return res.status(400).json({ success: false, message: "A user with this email already exists." });
+    }
     res.status(500).json({ success: false, message: "Internal server error" });
   }
 });
