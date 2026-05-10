@@ -913,61 +913,64 @@ app.post("/admin/approve-request/:requestId", async (req, res) => {
     const { requestId } = req.params;
     let { password } = req.body;
 
-    const request = await PendingRequest.findById(requestId);
+    let request = await PendingRequest.findById(requestId);
+    let isMembershipRequestRoute = false;
+
+    if (!request) {
+      const membershipRequest = await MembershipRequest.findById(requestId);
+      if (membershipRequest && membershipRequest.status === 'pending') {
+        isMembershipRequestRoute = true;
+        request = membershipRequest;
+      }
+    }
+
     if (!request || request.status !== 'pending') {
       return res.status(404).json({ success: false, message: "Request not found or already processed" });
     }
 
-    // Check if user already exists
-    let user = await User.findOne({ email: request.email });
+    isMembershipRequestRoute = isMembershipRequestRoute || request.isMembershipRequest;
+    let user = null;
     let generatedPassword = null;
     let passwordToUse = password;
-    const approvedRole = request.isMembershipRequest
-      ? 'member'
-      : (['member', 'trainer'].includes(request.requestedRole) ? request.requestedRole : 'member');
+    let roleMessage = 'member';
 
-    if (request.isMembershipRequest) {
-      // For membership payments, use the generated password from the request unless admin overrides it
-      if (!passwordToUse || typeof passwordToUse !== 'string' || passwordToUse.length < 6) {
-        passwordToUse = request.generatedPassword || Math.random().toString(36).slice(-10) + 'A1!';
+    if (isMembershipRequestRoute) {
+      // Membership requests may come from the dedicated MembershipRequest collection
+      if (request instanceof MembershipRequest) {
+        user = await User.findById(request.userId);
+      } else {
+        user = await User.findOne({ email: request.email });
       }
 
       if (!user) {
-        const hashedPassword = await bcrypt.hash(passwordToUse, 10);
-        user = new User({
-          displayName: `${request.firstName} ${request.lastName}`,
-          email: request.email,
-          password: hashedPassword,
-          role: 'member',
-          isVerified: true
-        });
-        await user.save();
-      } else {
-        user.isVerified = true;
-        if (!user.password) {
-          user.password = await bcrypt.hash(passwordToUse, 10);
-        }
-        await user.save();
+        return res.status(404).json({ success: false, message: "Associated user not found" });
       }
 
-      // Create membership record
+      if (!user.password || typeof user.password !== 'string' || user.password.length === 0) {
+        generatedPassword = Math.random().toString(36).slice(-10) + 'A1!';
+        passwordToUse = generatedPassword;
+        user.password = await bcrypt.hash(passwordToUse, 10);
+      }
+
+      user.isVerified = true;
+      await user.save();
+
       const renewalDate = new Date();
       renewalDate.setMonth(renewalDate.getMonth() + 1);
 
       const membership = new Membership({
         userId: user._id,
-        planName: request.membershipPlan || 'Basic',
+        planName: request.planName || request.membershipPlan || 'Basic',
         renewalDate,
         isActive: true,
-        price: request.membershipAmount || 0
+        price: request.amount || request.membershipAmount || 0
       });
 
       await membership.save();
 
-      // Create payment record for admin tracking
       const payment = new Payment({
         userId: user._id,
-        amount: request.membershipAmount || 0,
+        amount: request.amount || request.membershipAmount || 0,
         method: 'razorpay',
         status: 'completed',
         invoiceId: request.paymentId
@@ -979,10 +982,9 @@ app.post("/admin/approve-request/:requestId", async (req, res) => {
       request.approvedAt = new Date();
       request.approvedBy = req.user._id;
       await request.save();
-
-      generatedPassword = passwordToUse;
     } else {
       // Standard member/trainer request approval
+      user = await User.findOne({ email: request.email });
       if (user) {
         return res.status(400).json({ success: false, message: "User with this email already exists" });
       }
@@ -992,8 +994,10 @@ app.post("/admin/approve-request/:requestId", async (req, res) => {
         passwordToUse = generatedPassword;
       }
 
-      const hashedPassword = await bcrypt.hash(passwordToUse, 10);
+      const approvedRole = ['member', 'trainer'].includes(request.requestedRole) ? request.requestedRole : 'member';
+      roleMessage = approvedRole;
 
+      const hashedPassword = await bcrypt.hash(passwordToUse, 10);
       user = new User({
         displayName: `${request.firstName} ${request.lastName}`,
         email: request.email,
