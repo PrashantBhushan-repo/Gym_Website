@@ -26,7 +26,7 @@ const mongoURI = process.env.MONGO_URI || process.env.MONGODB_URI || "mongodb://
 
 // Middleware
 app.set('trust proxy', 1);
-const rawFrontendUrls = process.env.FRONTEND_URL || "http://localhost:3000,https://your-vercel-app.vercel.app";
+const rawFrontendUrls = process.env.FRONTEND_URL || "http://localhost:3000,https://gym-website-eight-plum.vercel.app";
 const allowedOrigins = rawFrontendUrls
   .split(',')
   .map((origin) => origin.trim())
