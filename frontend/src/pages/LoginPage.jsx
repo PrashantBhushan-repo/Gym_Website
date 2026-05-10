@@ -80,6 +80,20 @@ const LoginPage = () => {
     }
   };
 
+  React.useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const authStatus = params.get('auth');
+
+    if (authStatus === 'success') {
+      navigate('/dashboard');
+      return;
+    }
+
+    if (authStatus === 'failed') {
+      setError('Google sign-in failed. Please try again.');
+    }
+  }, [navigate]);
+
   return (
     <div className="login-page">
       <div className="login-container">

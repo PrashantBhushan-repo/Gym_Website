@@ -10,6 +10,9 @@ import AboutPage from './pages/AboutPage';
 import ServicesPage from './pages/ServicesPage';
 import ContactPage from './pages/ContactPage';
 import DashboardPage from './pages/DashboardPage';
+import MembershipCheckoutPage from './pages/MembershipCheckoutPage';
+import ShopPage from './pages/ShopPage';
+import CartPage from './pages/CartPage';
 import './App.css';
 
 function App() {
@@ -33,6 +36,9 @@ function App() {
                     <Route path="/services" element={<ProtectedRoute element={<ServicesPage />} />} />
                     <Route path="/contact" element={<ProtectedRoute element={<ContactPage />} />} />
                     <Route path="/dashboard" element={<ProtectedRoute element={<DashboardPage />} />} />
+                    <Route path="/membership/checkout" element={<ProtectedRoute element={<MembershipCheckoutPage />} />} />
+                    <Route path="/shop" element={<ProtectedRoute element={<ShopPage />} />} />
+                    <Route path="/shop/cart" element={<ProtectedRoute element={<CartPage />} />} />
                     <Route path="*" element={<Navigate to="/" replace />} />
                   </Routes>
                   <Footer />

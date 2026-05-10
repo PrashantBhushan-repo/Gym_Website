@@ -55,6 +55,15 @@ const Navbar = () => {
           </li>
           <li>
             <Link
+              to="/shop"
+              className={`nav-link ${location.pathname.startsWith('/shop') ? 'active' : ''}`}
+              onClick={closeMenu}
+            >
+              Shop
+            </Link>
+          </li>
+          <li>
+            <Link
               to="/about"
               className={`nav-link ${location.pathname === '/about' ? 'active' : ''}`}
               onClick={closeMenu}
@@ -79,6 +88,17 @@ const Navbar = () => {
                 onClick={closeMenu}
               >
                 Dashboard
+              </Link>
+            </li>
+          )}
+          {user && user.role === 'admin' && (
+            <li>
+              <Link
+                to="/test-email"
+                className={`nav-link ${location.pathname === '/test-email' ? 'active' : ''}`}
+                onClick={closeMenu}
+              >
+                Test Email
               </Link>
             </li>
           )}

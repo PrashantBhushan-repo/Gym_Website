@@ -7,7 +7,7 @@ const Membership = () => {
   const plans = [
     {
       name: 'Basic',
-      price: '$29',
+      price: '₹2,900',
       period: '/month',
       features: [
         '✓ Gym Access',
@@ -20,7 +20,7 @@ const Membership = () => {
     },
     {
       name: 'Premium',
-      price: '$59',
+      price: '₹5,900',
       period: '/month',
       features: [
         '✓ 24/7 Gym Access',
@@ -34,7 +34,7 @@ const Membership = () => {
     },
     {
       name: 'Elite',
-      price: '$99',
+      price: '₹9,900',
       period: '/month',
       features: [
         '✓ All Premium Benefits',
@@ -66,7 +66,7 @@ const Membership = () => {
                   <li key={i}>{feature}</li>
                 ))}
               </ul>
-              <Link to="/contact" className={`btn ${plan.buttonClass}`}>
+              <Link to={`/membership/checkout?plan=${plan.name}`} className={`btn ${plan.buttonClass}`}>
                 Get Started
               </Link>
             </div>

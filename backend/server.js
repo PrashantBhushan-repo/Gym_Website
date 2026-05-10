@@ -6,8 +6,12 @@ import passport from "passport";
 import session from "express-session";
 import MongoStore from "connect-mongo";
 import { Strategy as GoogleStrategy } from "passport-google-oauth20";
-import bcrypt from "bcrypt";
+import bcrypt from "bcryptjs";
 import dns from "node:dns";
+import crypto from "node:crypto";
+import Razorpay from "razorpay";
+import nodemailer from "nodemailer";
+import shopRoutes from "./routes/shopRoutes.js";
 
 // Load environment variables
 dotenv.config();
@@ -50,6 +54,7 @@ app.use(session({
 // Passport initialization
 app.use(passport.initialize());
 app.use(passport.session());
+app.use('/shop', shopRoutes);
 
 // MongoDB connection
 mongoose.connect(mongoURI, {
@@ -60,6 +65,38 @@ mongoose.connect(mongoURI, {
     console.log("MongoDB connection error:", err.message);
     console.log("Continuing without database connection for development...");
   });
+
+// Email transporter setup
+const emailTransporter = nodemailer.createTransport({
+  service: 'gmail',
+  auth: {
+    user: process.env.EMAIL_USER,
+    pass: process.env.EMAIL_PASS
+  }
+});
+
+// Initialize Razorpay only if credentials are provided
+let razorpay = null;
+if (process.env.RAZORPAY_KEY_ID && process.env.RAZORPAY_KEY_SECRET) {
+  razorpay = new Razorpay({
+    key_id: process.env.RAZORPAY_KEY_ID,
+    key_secret: process.env.RAZORPAY_KEY_SECRET
+  });
+}
+
+// Utility: Calculate distance between two points using Haversine formula (returns distance in km)
+const calculateDistance = (lat1, lon1, lat2, lon2) => {
+  const R = 6371; // Earth's radius in kilometers
+  const dLat = (lat2 - lat1) * Math.PI / 180;
+  const dLon = (lon2 - lon1) * Math.PI / 180;
+  const a = 
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+    Math.sin(dLon / 2) * Math.sin(dLon / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  const distance = R * c;
+  return distance;
+};
 
 // Contact Schema
 const contactSchema = new mongoose.Schema({
@@ -95,6 +132,15 @@ const pendingRequestSchema = new mongoose.Schema({
   interest: { type: String, default: "" },
   message: { type: String, required: true },
   requestedRole: { type: String, enum: ['member', 'trainer'], required: true },
+  membershipPlan: { type: String, enum: ['Basic', 'Premium', 'Elite'], default: null },
+  paymentId: { type: String, default: '' },
+  orderId: { type: String, default: '' },
+  generatedPassword: { type: String, default: '' },
+  requestCode: { type: String, default: '' },
+  membershipAmount: { type: Number, default: 0 },
+  isMembershipRequest: { type: Boolean, default: false },
+  preferredGymCenter: { type: mongoose.Schema.Types.ObjectId, ref: 'GymCenter' }, // NEW: Selected gym center
+  userLocationAddress: { type: String }, // NEW: User's location address
   submittedAt: { type: Date, default: Date.now },
   status: { type: String, enum: ['pending', 'approved', 'rejected'], default: 'pending' }
 });
@@ -105,7 +151,7 @@ const PendingRequest = mongoose.model("PendingRequest", pendingRequestSchema);
 // Membership Schema
 const membershipSchema = new mongoose.Schema({
   userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
-  planName: { type: String, enum: ['Basic', 'Premium', 'VIP'], default: 'Basic' },
+  planName: { type: String, enum: ['Basic', 'Premium', 'Elite'], default: 'Basic' },
   startDate: { type: Date, default: Date.now },
   renewalDate: { type: Date, required: true },
   isActive: { type: Boolean, default: true },
@@ -114,6 +160,26 @@ const membershipSchema = new mongoose.Schema({
 });
 
 const Membership = mongoose.model("Membership", membershipSchema);
+
+// Membership Request Schema
+const membershipRequestSchema = new mongoose.Schema({
+  userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+  email: { type: String, required: true, lowercase: true, trim: true },
+  planName: { type: String, enum: ['Basic', 'Premium', 'Elite'], required: true },
+  amount: { type: Number, required: true },
+  phone: { type: String, default: '' },
+  message: { type: String, default: '' },
+  paymentId: { type: String, required: true },
+  orderId: { type: String, required: true },
+  signature: { type: String, required: true },
+  paymentStatus: { type: String, enum: ['pending', 'paid', 'failed'], default: 'pending' },
+  status: { type: String, enum: ['pending', 'approved', 'rejected'], default: 'pending' },
+  submittedAt: { type: Date, default: Date.now },
+  approvedAt: { type: Date },
+  approvedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' }
+});
+
+const MembershipRequest = mongoose.model("MembershipRequest", membershipRequestSchema);
 
 // Classes Schema
 const classSchema = new mongoose.Schema({
@@ -165,7 +231,7 @@ const Progress = mongoose.model("Progress", progressSchema);
 const paymentSchema = new mongoose.Schema({
   userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
   amount: { type: Number, required: true },
-  method: { type: String, enum: ['credit_card', 'debit_card', 'paypal'], required: true },
+  method: { type: String, enum: ['credit_card', 'debit_card', 'paypal', 'razorpay'], required: true },
   status: { type: String, enum: ['pending', 'completed', 'failed'], default: 'pending' },
   invoiceId: String,
   paymentDate: { type: Date, default: Date.now }
@@ -173,35 +239,71 @@ const paymentSchema = new mongoose.Schema({
 
 const Payment = mongoose.model("Payment", paymentSchema);
 
+// Collaborated Gym Center Schema
+const gymCenterSchema = new mongoose.Schema({
+  name: { type: String, required: true },
+  address: { type: String, required: true },
+  city: { type: String, required: true },
+  state: { type: String, required: true },
+  postalCode: { type: String, required: true },
+  latitude: { type: Number, required: true }, // For distance calculation
+  longitude: { type: Number, required: true }, // For distance calculation
+  phone: { type: String, required: true },
+  email: { type: String, required: true },
+  contactPerson: { type: String, required: true },
+  collaborationTerms: { type: String, required: true }, // Terms and conditions
+  facilityDescription: { type: String }, // Brief description of facilities
+  isActive: { type: Boolean, default: true },
+  addedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+  createdAt: { type: Date, default: Date.now },
+  updatedAt: { type: Date, default: Date.now }
+});
+
+const GymCenter = mongoose.model("GymCenter", gymCenterSchema);
+
 // Passport Google Strategy
 // Passport Google Strategy (only if credentials are provided)
 if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
   passport.use(new GoogleStrategy({
     clientID: process.env.GOOGLE_CLIENT_ID,
     clientSecret: process.env.GOOGLE_CLIENT_SECRET,
-    callbackURL: process.env.GOOGLE_CALLBACK_URL || `${process.env.FRONTEND_URL || 'http://localhost:3000'}/auth/google/callback`
+    callbackURL: process.env.GOOGLE_CALLBACK_URL || `http://localhost:${port}/auth/google/callback`
   }, async (accessToken, refreshToken, profile, done) => {
     try {
-      // Check if user already exists
+      // Check if user already exists by Google ID
       let user = await User.findOne({ googleId: profile.id });
-
       if (user) {
         return done(null, user);
       }
 
-      // Determine role based on email
+      // If the same email exists already, attach googleId to that account
+      const email = profile.emails?.[0]?.value;
+      if (email) {
+        user = await User.findOne({ email: email.toLowerCase().trim() });
+      }
+
       let role = 'member';
       const adminEmails = ['prashant.bhushan.tech@gmail.com', 'prashant189041830@gmail.com'];
-      if (adminEmails.includes(profile.emails[0].value)) {
+      if (email && adminEmails.includes(email)) {
         role = 'admin';
       }
 
-      // Create new user
+      if (user) {
+        user.googleId = profile.id;
+        user.displayName = profile.displayName || user.displayName;
+        user.picture = profile.photos?.[0]?.value || user.picture;
+        user.role = user.role || role;
+        user.isVerified = true;
+        await user.save();
+        return done(null, user);
+      }
+
+      // Create new user when no matching email or googleId exists
       user = new User({
         googleId: profile.id,
         displayName: profile.displayName,
-        email: profile.emails[0].value,
-        picture: profile.photos[0].value,
+        email: email,
+        picture: profile.photos?.[0]?.value,
         role: role,
         isVerified: true
       });
@@ -209,6 +311,7 @@ if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
       await user.save();
       return done(null, user);
     } catch (error) {
+      console.error('Google OAuth error:', error);
       return done(error, null);
     }
   }));
@@ -235,11 +338,14 @@ if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
   );
 
   app.get("/auth/google/callback",
-    passport.authenticate("google", { failureRedirect: "/login", failureMessage: true }),
+    passport.authenticate("google", {
+      failureRedirect: `${process.env.FRONTEND_URL || 'http://localhost:3000'}/login?auth=failed`,
+      failureMessage: true
+    }),
     (req, res) => {
-      // Successful authentication, redirect to frontend home
+      // Successful authentication, redirect to frontend dashboard
       const frontendUrl = process.env.FRONTEND_URL || "http://localhost:3000";
-      res.redirect(`${frontendUrl}/?auth=success`);
+      res.redirect(`${frontendUrl}/dashboard?auth=success`);
     }
   );
 }
@@ -383,10 +489,10 @@ app.get("/contacts", async (req, res) => {
   }
 });
 
-// POST route for contact form submission (now handles role requests)
+// POST route for contact form submission (now handles role requests and gym location)
 app.post("/contact", async (req, res) => {
   try {
-    const { firstName, lastName, email, phone, interest, message, requestedRole } = req.body;
+    const { firstName, lastName, email, phone, interest, message, requestedRole, preferredGymCenter, userLocationAddress } = req.body;
 
     // Basic validation
     if (!firstName || !lastName || !email || !message) {
@@ -405,6 +511,50 @@ app.post("/contact", async (req, res) => {
       });
     }
 
+    // If membership payment details are included, create a membership pending request
+    const membershipPlan = req.body.membershipPlan;
+    const paymentId = req.body.paymentId;
+    const orderId = req.body.orderId;
+    const generatedPassword = req.body.generatedPassword;
+    const requestCode = req.body.requestCode;
+    const membershipAmount = req.body.membershipAmount;
+
+    if (membershipPlan || paymentId || generatedPassword || requestCode) {
+      if (!membershipPlan || !paymentId || !generatedPassword || !requestCode) {
+        return res.status(400).json({
+          success: false,
+          message: "Please provide all membership payment details: plan, payment ID, order ID, generated password, and request code."
+        });
+      }
+
+      const pendingRequest = new PendingRequest({
+        firstName,
+        lastName,
+        email,
+        phone: phone || "",
+        interest: membershipPlan,
+        message,
+        requestedRole: 'member',
+        membershipPlan,
+        paymentId,
+        orderId,
+        generatedPassword,
+        requestCode,
+        membershipAmount: membershipAmount || 0,
+        isMembershipRequest: true,
+        preferredGymCenter: preferredGymCenter || null,
+        userLocationAddress: userLocationAddress || ""
+      });
+
+      await pendingRequest.save();
+
+      return res.json({
+        success: true,
+        message: "Your membership payment request has been submitted. Admin will review it soon.",
+        requestId: pendingRequest._id
+      });
+    }
+
     // If role is requested, create pending request instead of contact
     if (requestedRole && ['member', 'trainer'].includes(requestedRole)) {
       const pendingRequest = new PendingRequest({
@@ -414,7 +564,9 @@ app.post("/contact", async (req, res) => {
         phone: phone || "",
         interest: interest || "",
         message,
-        requestedRole
+        requestedRole,
+        preferredGymCenter: preferredGymCenter || null,
+        userLocationAddress: userLocationAddress || ""
       });
 
       await pendingRequest.save();
@@ -455,6 +607,251 @@ app.post("/contact", async (req, res) => {
   }
 });
 
+// Razorpay order creation
+app.post("/razorpay/order", async (req, res) => {
+  try {
+    if (!req.user) {
+      return res.status(401).json({ success: false, message: "Not authenticated" });
+    }
+
+    const { planName } = req.body;
+    const planPrices = {
+      Basic: 2900,
+      Premium: 5900,
+      Elite: 9900
+    };
+
+    if (!planName || !planPrices[planName]) {
+      return res.status(400).json({ success: false, message: "Invalid membership plan" });
+    }
+
+    if (!process.env.RAZORPAY_KEY_ID || !process.env.RAZORPAY_KEY_SECRET) {
+      return res.status(500).json({ success: false, message: "Razorpay keys are not configured" });
+    }
+
+    if (!razorpay) {
+      return res.status(500).json({ success: false, message: "Razorpay is not initialized" });
+    }
+
+    const amount = planPrices[planName] * 100;
+    const receipt = `rcpt_${Date.now()}_${Math.random().toString(36).slice(-6)}`;
+    const order = await razorpay.orders.create({
+      amount,
+      currency: 'INR',
+      receipt,
+      payment_capture: 1
+    });
+
+    res.json({ success: true, order, keyId: process.env.RAZORPAY_KEY_ID });
+  } catch (error) {
+    console.error("Error creating Razorpay order:", error);
+    const message = error?.error?.description || error?.message || "Failed to create payment order";
+    res.status(500).json({ success: false, message });
+  }
+});
+
+// Save membership request after successful payment
+app.post("/membership/request", async (req, res) => {
+  try {
+    if (!req.user) {
+      return res.status(401).json({ success: false, message: "Not authenticated" });
+    }
+
+    const { planName, amount, phone, message, paymentId, orderId, signature } = req.body;
+    const planPrices = {
+      Basic: 2900,
+      Premium: 5900,
+      Elite: 9900
+    };
+
+    if (!planName || !planPrices[planName]) {
+      return res.status(400).json({ success: false, message: "Invalid membership plan" });
+    }
+
+    if (typeof amount !== 'number' || amount !== planPrices[planName]) {
+      return res.status(400).json({ success: false, message: "Invalid amount" });
+    }
+
+    if (!paymentId || !orderId || !signature) {
+      return res.status(400).json({ success: false, message: "Missing payment details" });
+    }
+
+    const expectedSignature = crypto
+      .createHmac('sha256', process.env.RAZORPAY_KEY_SECRET)
+      .update(`${orderId}|${paymentId}`)
+      .digest('hex');
+
+    if (expectedSignature !== signature) {
+      return res.status(400).json({ success: false, message: "Payment verification failed" });
+    }
+
+    const request = new MembershipRequest({
+      userId: req.user._id,
+      email: req.user.email,
+      planName,
+      amount,
+      phone: phone || "",
+      message: message || "",
+      paymentId,
+      orderId,
+      signature,
+      paymentStatus: 'paid',
+      status: 'pending'
+    });
+
+    await request.save();
+    res.json({ success: true, message: "Membership request submitted successfully" });
+  } catch (error) {
+    console.error("Error saving membership request:", error);
+    res.status(500).json({ success: false, message: "Internal server error" });
+  }
+});
+
+// Get membership requests for admin review
+app.get("/admin/membership-requests", async (req, res) => {
+  try {
+    if (!req.user || req.user.role !== 'admin') {
+      return res.status(403).json({ message: "Unauthorized - admin access required" });
+    }
+
+    const requests = await MembershipRequest.find().populate('userId', 'displayName email').sort({ submittedAt: -1 });
+    res.json({ success: true, requests });
+  } catch (error) {
+    console.error("Error fetching membership requests:", error);
+    res.status(500).json({ success: false, message: "Internal server error" });
+  }
+});
+
+// Approve membership request and activate membership
+app.post("/admin/membership-requests/:requestId/approve", async (req, res) => {
+  try {
+    if (!req.user || req.user.role !== 'admin') {
+      return res.status(403).json({ message: "Unauthorized - admin access required" });
+    }
+
+    const { requestId } = req.params;
+    let { password } = req.body;
+
+    const request = await MembershipRequest.findById(requestId);
+    if (!request || request.status !== 'pending') {
+      return res.status(404).json({ success: false, message: "Request not found or already processed" });
+    }
+
+    const user = await User.findById(request.userId);
+    if (!user) {
+      return res.status(404).json({ success: false, message: "Associated user not found" });
+    }
+
+    let generatedPassword = null;
+    if (!user.password || typeof user.password !== 'string' || user.password.length === 0) {
+      generatedPassword = Math.random().toString(36).slice(-10) + 'A1!';
+      password = generatedPassword;
+      user.password = await bcrypt.hash(password, 10);
+    }
+
+    user.isVerified = true;
+    await user.save();
+
+    const renewalDate = new Date();
+    renewalDate.setMonth(renewalDate.getMonth() + 1);
+
+    const membership = new Membership({
+      userId: user._id,
+      planName: request.planName,
+      renewalDate,
+      isActive: true,
+      price: request.amount
+    });
+
+    await membership.save();
+
+    const payment = new Payment({
+      userId: user._id,
+      amount: request.amount,
+      method: 'razorpay',
+      status: 'completed',
+      invoiceId: request.paymentId
+    });
+
+    await payment.save();
+
+    request.status = 'approved';
+    request.approvedAt = new Date();
+    request.approvedBy = req.user._id;
+    await request.save();
+
+    try {
+      console.log(`Attempting to send membership approval email to: ${request.email}`);
+      const passwordLine = generatedPassword
+        ? `<li><strong>Password:</strong> ${generatedPassword}</li>`
+        : '';
+
+      const mailOptions = {
+        from: process.env.EMAIL_USER,
+        to: request.email,
+        subject: 'Your FitZone membership is approved',
+        html: `
+          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+            <h2 style="color: #333;">FitZone Membership Approved</h2>
+            <p>Dear ${user.displayName},</p>
+            <p>Your membership request for the <strong>${request.planName}</strong> plan has been approved.</p>
+            <p>Payment details:</p>
+            <ul>
+              <li><strong>Amount:</strong> ₹${request.amount}</li>
+              <li><strong>Payment ID:</strong> ${request.paymentId}</li>
+              <li><strong>Order ID:</strong> ${request.orderId}</li>
+            </ul>
+            ${passwordLine}
+            <p>Please log in to your dashboard with your email and password.</p>
+            <p>Best regards,<br>FitZone Team</p>
+          </div>
+        `
+      };
+
+      const emailResult = await emailTransporter.sendMail(mailOptions);
+      console.log(`✅ Membership approval email sent successfully to ${request.email}`);
+      console.log('Message ID:', emailResult.messageId);
+    } catch (emailError) {
+      console.error('❌ Error sending membership approval email:', emailError);
+      console.error('Email details:', {
+        from: process.env.EMAIL_USER,
+        to: request.email,
+        subject: 'Your FitZone membership is approved'
+      });
+    }
+
+    res.json({ success: true, message: 'Membership approved successfully', generatedPassword });
+  } catch (error) {
+    console.error('Error approving membership request:', error);
+    res.status(500).json({ success: false, message: 'Internal server error' });
+  }
+});
+
+// Reject membership request
+app.post("/admin/membership-requests/:requestId/reject", async (req, res) => {
+  try {
+    if (!req.user || req.user.role !== 'admin') {
+      return res.status(403).json({ message: "Unauthorized - admin access required" });
+    }
+
+    const { requestId } = req.params;
+    const request = await MembershipRequest.findById(requestId);
+
+    if (!request || request.status !== 'pending') {
+      return res.status(404).json({ success: false, message: "Request not found or already processed" });
+    }
+
+    request.status = 'rejected';
+    await request.save();
+
+    res.json({ success: true, message: 'Membership request rejected' });
+  } catch (error) {
+    console.error('Error rejecting membership request:', error);
+    res.status(500).json({ success: false, message: 'Internal server error' });
+  }
+});
+
+// Test email endpoint (for debugging)
 // ========== ADMIN MANAGEMENT ROUTES ==========
 
 // Get pending requests
@@ -480,7 +877,7 @@ app.post("/admin/approve-request/:requestId", async (req, res) => {
     }
 
     const { requestId } = req.params;
-    const { password } = req.body;
+    let { password } = req.body;
 
     const request = await PendingRequest.findById(requestId);
     if (!request || request.status !== 'pending') {
@@ -488,30 +885,138 @@ app.post("/admin/approve-request/:requestId", async (req, res) => {
     }
 
     // Check if user already exists
-    const existingUser = await User.findOne({ email: request.email });
-    if (existingUser) {
-      return res.status(400).json({ success: false, message: "User with this email already exists" });
+    let user = await User.findOne({ email: request.email });
+    let generatedPassword = null;
+    let passwordToUse = password;
+
+    if (request.isMembershipRequest) {
+      // For membership payments, use the generated password from the request unless admin overrides it
+      if (!passwordToUse || typeof passwordToUse !== 'string' || passwordToUse.length < 6) {
+        passwordToUse = request.generatedPassword || Math.random().toString(36).slice(-10) + 'A1!';
+      }
+
+      if (!user) {
+        const hashedPassword = await bcrypt.hash(passwordToUse, 10);
+        user = new User({
+          displayName: `${request.firstName} ${request.lastName}`,
+          email: request.email,
+          password: hashedPassword,
+          role: 'member',
+          isVerified: true
+        });
+        await user.save();
+      } else {
+        user.isVerified = true;
+        if (!user.password) {
+          user.password = await bcrypt.hash(passwordToUse, 10);
+        }
+        await user.save();
+      }
+
+      // Create membership record
+      const renewalDate = new Date();
+      renewalDate.setMonth(renewalDate.getMonth() + 1);
+
+      const membership = new Membership({
+        userId: user._id,
+        planName: request.membershipPlan || 'Basic',
+        renewalDate,
+        isActive: true,
+        price: request.membershipAmount || 0
+      });
+
+      await membership.save();
+
+      // Create payment record for admin tracking
+      const payment = new Payment({
+        userId: user._id,
+        amount: request.membershipAmount || 0,
+        method: 'razorpay',
+        status: 'completed',
+        invoiceId: request.paymentId
+      });
+
+      await payment.save();
+
+      request.status = 'approved';
+      request.approvedAt = new Date();
+      request.approvedBy = req.user._id;
+      await request.save();
+
+      generatedPassword = passwordToUse;
+    } else {
+      // Standard member/trainer request approval
+      if (user) {
+        return res.status(400).json({ success: false, message: "User with this email already exists" });
+      }
+
+      if (!passwordToUse || typeof passwordToUse !== 'string' || passwordToUse.length < 6) {
+        generatedPassword = Math.random().toString(36).slice(-10) + 'A1!';
+        passwordToUse = generatedPassword;
+      }
+
+      const hashedPassword = await bcrypt.hash(passwordToUse, 10);
+
+      user = new User({
+        displayName: `${request.firstName} ${request.lastName}`,
+        email: request.email,
+        password: hashedPassword,
+        role: request.requestedRole,
+        isVerified: true
+      });
+
+      await user.save();
+
+      request.status = 'approved';
+      request.approvedAt = new Date();
+      request.approvedBy = req.user._id;
+      await request.save();
     }
 
-    // Hash password
-    const hashedPassword = await bcrypt.hash(password, 10);
+    // Send welcome email with password
+    try {
+      console.log(`Attempting to send welcome email to: ${request.email}`);
+      const roleMessage = request.isMembershipRequest ? 'member' : (request.requestedRole === 'trainer' ? 'trainer' : 'member');
+      const mailOptions = {
+        from: process.env.EMAIL_USER,
+        to: request.email,
+        subject: 'Welcome to FitZone - Your Account Details',
+        html: `
+          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+            <h2 style="color: #333;">Welcome to FitZone!</h2>
+            <p>Dear ${request.firstName} ${request.lastName},</p>
+            <p>You have joined FitZone membership successfully as a <strong>${roleMessage}</strong>.</p>
+            <p>Your account has been created with the following details:</p>
+            <ul>
+              <li><strong>Email:</strong> ${request.email}</li>
+              <li><strong>Role:</strong> ${roleMessage}</li>
+              <li><strong>Password:</strong> ${passwordToUse}</li>
+            </ul>
+            ${request.isMembershipRequest ? `<p><strong>Membership Plan:</strong> ${request.membershipPlan}</p>
+              <p><strong>Payment ID:</strong> ${request.paymentId}</p>
+              <p><strong>Order ID:</strong> ${request.orderId}</p>
+              <p><strong>Request Code:</strong> ${request.requestCode}</p>` : ''}
+            <p>Please log in to your dashboard using your email and the password above.</p>
+            <p>You can change your password after logging in for the first time.</p>
+            <p>Best regards,<br>FitZone Team</p>
+          </div>
+        `
+      };
 
-    // Create new user
-    const newUser = new User({
-      displayName: `${request.firstName} ${request.lastName}`,
-      email: request.email,
-      password: hashedPassword,
-      role: request.requestedRole,
-      isVerified: true
-    });
+      const emailResult = await emailTransporter.sendMail(mailOptions);
+      console.log(`✅ Welcome email sent successfully to ${request.email}`);
+      console.log('Message ID:', emailResult.messageId);
+    } catch (emailError) {
+      console.error('❌ Error sending welcome email:', emailError);
+      console.error('Email details:', {
+        from: process.env.EMAIL_USER,
+        to: request.email,
+        subject: 'Welcome to FitZone - Your Account Details'
+      });
+      // Don't fail the request if email fails, but log it
+    }
 
-    await newUser.save();
-
-    // Update request status
-    request.status = 'approved';
-    await request.save();
-
-    res.json({ success: true, message: "User created successfully", user: newUser });
+    res.json({ success: true, message: "User created successfully", user, generatedPassword });
   } catch (error) {
     console.error("Error approving request:", error);
     res.status(500).json({ success: false, message: "Internal server error" });
@@ -579,10 +1084,10 @@ app.post("/admin/add-user", async (req, res) => {
     const hashedPassword = await bcrypt.hash(password, 10);
 
     const newUser = new User({
-      displayName,
-      email,
+      displayName: displayName,
+      email: email.toLowerCase(),
       password: hashedPassword,
-      role,
+      role: role,
       isVerified: true
     });
 
@@ -672,6 +1177,213 @@ app.get("/admin/users", async (req, res) => {
     res.json({ success: true, users });
   } catch (error) {
     console.error("Error fetching users:", error);
+    res.status(500).json({ success: false, message: "Internal server error" });
+  }
+});
+
+// ========== GYM CENTER MANAGEMENT ROUTES (ADMIN) ==========
+
+// Add new collaborated gym center (admin only)
+app.post("/admin/gym-centers", async (req, res) => {
+  try {
+    if (!req.user || req.user.role !== 'admin') {
+      return res.status(403).json({ message: "Unauthorized - admin access required" });
+    }
+
+    let { name, address, city, state, postalCode, latitude, longitude, phone, email, contactPerson, collaborationTerms, facilityDescription } = req.body;
+
+    latitude = parseFloat(latitude);
+    longitude = parseFloat(longitude);
+
+    // Validation
+    if (!name || !address || !city || !state || !postalCode || latitude === undefined || longitude === undefined || isNaN(latitude) || isNaN(longitude) || !phone || !email || !contactPerson || !collaborationTerms) {
+      return res.status(400).json({ 
+        success: false, 
+        message: "All required fields must be provided and coordinates must be valid numbers (name, address, city, state, postalCode, latitude, longitude, phone, email, contactPerson, collaborationTerms)" 
+      });
+    }
+
+    // Validate coordinates
+    if (latitude < -90 || latitude > 90 || longitude < -180 || longitude > 180) {
+      return res.status(400).json({ 
+        success: false, 
+        message: "Invalid latitude or longitude coordinates" 
+      });
+    }
+
+    // Create new gym center
+    const newGymCenter = new GymCenter({
+      name,
+      address,
+      city,
+      state,
+      postalCode,
+      latitude,
+      longitude,
+      phone,
+      email,
+      contactPerson,
+      collaborationTerms,
+      facilityDescription: facilityDescription || '',
+      isActive: true,
+      addedBy: req.user._id
+    });
+
+    await newGymCenter.save();
+
+    res.json({ 
+      success: true, 
+      message: "Gym center added successfully", 
+      gymCenter: newGymCenter 
+    });
+  } catch (error) {
+    console.error("Error adding gym center:", error);
+    res.status(500).json({ success: false, message: "Internal server error" });
+  }
+});
+
+// Get all collaborated gym centers (public endpoint - for dropdown in contact form)
+app.get("/gym-centers", async (req, res) => {
+  try {
+    const gymCenters = await GymCenter.find({ isActive: true }).select('-collaborationTerms');
+    res.json({ 
+      success: true, 
+      gymCenters 
+    });
+  } catch (error) {
+    console.error("Error fetching gym centers:", error);
+    res.status(500).json({ success: false, message: "Internal server error" });
+  }
+});
+
+// Find nearby gym centers based on user location (public endpoint)
+// Uses Haversine formula to calculate distance between two coordinates
+app.post("/gym-centers/nearby", async (req, res) => {
+  try {
+    const { latitude, longitude, radiusKm = 15 } = req.body;
+
+    if (latitude === undefined || longitude === undefined) {
+      return res.status(400).json({ 
+        success: false, 
+        message: "User latitude and longitude are required" 
+      });
+    }
+
+    // Validate coordinates
+    if (typeof latitude !== 'number' || typeof longitude !== 'number' || latitude < -90 || latitude > 90 || longitude < -180 || longitude > 180) {
+      return res.status(400).json({ 
+        success: false, 
+        message: "Invalid latitude or longitude coordinates" 
+      });
+    }
+
+    const gymCenters = await GymCenter.find({ isActive: true });
+
+    // Calculate distance for each gym center using Haversine formula
+    const nearbyGyms = gymCenters
+      .map(gym => {
+        const distance = calculateDistance(latitude, longitude, gym.latitude, gym.longitude);
+        return {
+          ...gym.toObject(),
+          distance: Math.round(distance * 10) / 10 // Round to 1 decimal place
+        };
+      })
+      .filter(gym => gym.distance <= radiusKm)
+      .sort((a, b) => a.distance - b.distance);
+
+    res.json({ 
+      success: true, 
+      nearbyGyms,
+      userLocation: { latitude, longitude },
+      radiusKm 
+    });
+  } catch (error) {
+    console.error("Error finding nearby gyms:", error);
+    res.status(500).json({ success: false, message: "Internal server error" });
+  }
+});
+
+// Get all gym centers (admin only - includes all details)
+app.get("/admin/gym-centers", async (req, res) => {
+  try {
+    if (!req.user || req.user.role !== 'admin') {
+      return res.status(403).json({ message: "Unauthorized - admin access required" });
+    }
+
+    const gymCenters = await GymCenter.find().populate('addedBy', 'displayName email').sort({ createdAt: -1 });
+    res.json({ 
+      success: true, 
+      gymCenters 
+    });
+  } catch (error) {
+    console.error("Error fetching gym centers:", error);
+    res.status(500).json({ success: false, message: "Internal server error" });
+  }
+});
+
+// Update gym center (admin only)
+app.put("/admin/gym-centers/:gymCenterId", async (req, res) => {
+  try {
+    if (!req.user || req.user.role !== 'admin') {
+      return res.status(403).json({ message: "Unauthorized - admin access required" });
+    }
+
+    const { gymCenterId } = req.params;
+    const updateData = req.body;
+
+    // Prevent updating addedBy field
+    delete updateData.addedBy;
+    delete updateData.createdAt;
+
+    // Update timestamp
+    updateData.updatedAt = new Date();
+
+    const updatedGymCenter = await GymCenter.findByIdAndUpdate(
+      gymCenterId,
+      updateData,
+      { new: true, runValidators: true }
+    );
+
+    if (!updatedGymCenter) {
+      return res.status(404).json({ success: false, message: "Gym center not found" });
+    }
+
+    res.json({ 
+      success: true, 
+      message: "Gym center updated successfully", 
+      gymCenter: updatedGymCenter 
+    });
+  } catch (error) {
+    console.error("Error updating gym center:", error);
+    res.status(500).json({ success: false, message: "Internal server error" });
+  }
+});
+
+// Delete gym center (admin only - soft delete by setting isActive to false)
+app.delete("/admin/gym-centers/:gymCenterId", async (req, res) => {
+  try {
+    if (!req.user || req.user.role !== 'admin') {
+      return res.status(403).json({ message: "Unauthorized - admin access required" });
+    }
+
+    const { gymCenterId } = req.params;
+
+    const updatedGymCenter = await GymCenter.findByIdAndUpdate(
+      gymCenterId,
+      { isActive: false, updatedAt: new Date() },
+      { new: true }
+    );
+
+    if (!updatedGymCenter) {
+      return res.status(404).json({ success: false, message: "Gym center not found" });
+    }
+
+    res.json({ 
+      success: true, 
+      message: "Gym center deleted successfully" 
+    });
+  } catch (error) {
+    console.error("Error deleting gym center:", error);
     res.status(500).json({ success: false, message: "Internal server error" });
   }
 });
@@ -768,6 +1480,7 @@ app.get("/dashboard/admin", async (req, res) => {
     const membershipStats = await Membership.aggregate([
       { $group: { _id: '$planName', count: { $sum: 1 } } }
     ]);
+    const pendingMembershipRequests = await MembershipRequest.countDocuments({ status: 'pending' });
 
     res.json({
       success: true,
@@ -777,6 +1490,7 @@ app.get("/dashboard/admin", async (req, res) => {
         activeMemberships,
         totalClasses,
         pendingRequests,
+        pendingMembershipRequests,
         totalRevenue: totalRevenue.length > 0 ? totalRevenue[0].total : 0,
         recentSignups,
         recentContacts,

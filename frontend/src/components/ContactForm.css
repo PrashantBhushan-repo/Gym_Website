@@ -9,7 +9,7 @@
 }
 
 .contact-form {
-    background-color: white;
+    background-color: black;
     padding: 2rem;
     border-radius: 10px;
     box-shadow: var(--shadow);
@@ -103,4 +103,43 @@
     .role-option input[type="radio"] {
         margin-bottom: 0.5rem;
     }
+}
+
+/* NEW: Gym Location Section */
+.gym-location-section {
+    margin: 2rem 0;
+    padding: 1.5rem;
+    background: #f8f9fa;
+    border-radius: 8px;
+    border: 1px solid #e9ecef;
+}
+
+.gym-location-section label {
+    font-weight: 600;
+    color: var(--secondary-color);
+    display: block;
+    margin-bottom: 0.5rem;
+}
+
+.gym-info-text {
+    color: #666;
+    font-size: 0.85rem;
+    margin-top: 0.5rem;
+    font-style: italic;
+}
+
+/* Membership Payment Section */
+.membership-payment-section {
+    margin: 2rem 0;
+    padding: 1.5rem;
+    background: #f8f9fa;
+    border-radius: 8px;
+    border: 1px solid #e9ecef;
+}
+
+.membership-payment-section label {
+    font-weight: 600;
+    color: var(--secondary-color);
+    display: block;
+    margin-bottom: 0.5rem;
 }
