@@ -237,13 +237,10 @@ const AdminDashboard = ({ user }) => {
     }
   };
 
-  const handleApproveRequest = async (requestId, requestType) => {
+  const handleApproveRequest = async (requestId) => {
     setActionMessage({ type: '', text: '' });
     try {
-      const endpoint = requestType === 'membership'
-        ? `/admin/membership-requests/${requestId}/approve`
-        : `/admin/approve-request/${requestId}`;
-      const response = await fetch(apiUrl(endpoint), {
+      const response = await fetch(apiUrl(`/admin/approve-request/${requestId}`), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
@@ -440,7 +437,7 @@ const AdminDashboard = ({ user }) => {
                       value={requestPassword[request._id] || ''}
                       onChange={(e) => setRequestPassword((prev) => ({ ...prev, [request._id]: e.target.value }))}
                     />
-                    <button className="action-btn" type="button" onClick={() => handleApproveRequest(request._id, request.isMembershipRequest ? 'membership' : 'pending')}>
+                    <button className="action-btn" type="button" onClick={() => handleApproveRequest(request._id)}>
                       Approve
                     </button>
                   </div>
