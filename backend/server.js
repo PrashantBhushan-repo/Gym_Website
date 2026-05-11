@@ -26,7 +26,7 @@ const mongoURI = process.env.MONGO_URI || process.env.MONGODB_URI || "mongodb://
 
 // Middleware
 app.set('trust proxy', 1);
-const rawFrontendUrls = process.env.FRONTEND_URL || "http://localhost:3000,https://gym-website-eight-plum.vercel.app";
+const rawFrontendUrls = process.env.FRONTEND_URL || "http://localhost:3000,https://gym-website-eight-plum.vercel.app,https://gym-website-xtj6.onrender.com";
 const allowedOrigins = rawFrontendUrls
   .split(',')
   .map((origin) => origin.trim())
@@ -87,18 +87,21 @@ mongoose.connect(mongoURI, {
 
 // Email transporter setup
 const emailEnabled = process.env.EMAIL_USER && process.env.EMAIL_PASS;
+const emailService = process.env.EMAIL_SERVICE || 'gmail';
 const emailFrom = process.env.EMAIL_USER
   ? `"FitZone Team" <${process.env.EMAIL_USER}>`
   : '"FitZone Team" <no-reply@fitzone.local>';
 const emailTransporter = emailEnabled
   ? nodemailer.createTransport({
-      service: 'gmail',
+      service: emailService,
       auth: {
         user: process.env.EMAIL_USER,
         pass: process.env.EMAIL_PASS
       }
     })
   : nodemailer.createTransport({ jsonTransport: true });
+
+console.log('Email enabled:', Boolean(emailEnabled), 'Email service:', emailEnabled ? emailService : 'jsonTransport');
 
 // Initialize Razorpay only if credentials are provided
 const razorpayEnabled = process.env.RAZORPAY_KEY_ID && process.env.RAZORPAY_KEY_SECRET;
@@ -933,6 +936,7 @@ app.post("/admin/approve-request/:requestId", async (req, res) => {
     let generatedPassword = null;
     let passwordToUse = password;
     let roleMessage = 'member';
+    let userExists = false;
 
     if (isMembershipRequestRoute) {
       // Membership requests may come from the dedicated MembershipRequest collection
@@ -945,6 +949,8 @@ app.post("/admin/approve-request/:requestId", async (req, res) => {
       if (!user) {
         return res.status(404).json({ success: false, message: "Associated user not found" });
       }
+
+      userExists = true;
 
       if (!user.password || typeof user.password !== 'string' || user.password.length === 0) {
         generatedPassword = Math.random().toString(36).slice(-10) + 'A1!';
@@ -984,29 +990,41 @@ app.post("/admin/approve-request/:requestId", async (req, res) => {
       await request.save();
     } else {
       // Standard member/trainer request approval
+      const approvedRole = ['member', 'trainer'].includes(request.requestedRole) ? request.requestedRole : 'member';
+      roleMessage = approvedRole;
+
       user = await User.findOne({ email: request.email });
-      if (user) {
-        return res.status(400).json({ success: false, message: "User with this email already exists" });
-      }
+      userExists = !!user;
 
       if (!passwordToUse || typeof passwordToUse !== 'string' || passwordToUse.length < 6) {
         generatedPassword = Math.random().toString(36).slice(-10) + 'A1!';
         passwordToUse = generatedPassword;
       }
 
-      const approvedRole = ['member', 'trainer'].includes(request.requestedRole) ? request.requestedRole : 'member';
-      roleMessage = approvedRole;
-
-      const hashedPassword = await bcrypt.hash(passwordToUse, 10);
-      user = new User({
-        displayName: `${request.firstName} ${request.lastName}`,
-        email: request.email,
-        password: hashedPassword,
-        role: approvedRole,
-        isVerified: true
-      });
-
-      await user.save();
+      if (userExists) {
+        // Update existing user
+        user.displayName = user.displayName || `${request.firstName} ${request.lastName}`;
+        user.role = approvedRole;
+        user.isVerified = true;
+        if (!user.password || typeof user.password !== 'string' || user.password.length === 0) {
+          user.password = await bcrypt.hash(passwordToUse, 10);
+        } else {
+          // User already has password, don't send it in email
+          passwordToUse = null;
+        }
+        await user.save();
+      } else {
+        // Create new user
+        const hashedPassword = await bcrypt.hash(passwordToUse, 10);
+        user = new User({
+          displayName: `${request.firstName} ${request.lastName}`,
+          email: request.email,
+          password: hashedPassword,
+          role: approvedRole,
+          isVerified: true
+        });
+        await user.save();
+      }
 
       request.status = 'approved';
       request.approvedAt = new Date();
@@ -1017,28 +1035,29 @@ app.post("/admin/approve-request/:requestId", async (req, res) => {
     // Send welcome email with password
     try {
       console.log(`Attempting to send welcome email to: ${request.email}`);
-      const roleMessage = request.isMembershipRequest ? 'member' : approvedRole;
+      const finalRoleMessage = request.isMembershipRequest ? 'member' : roleMessage;
       const mailOptions = {
         from: emailFrom,
         to: request.email,
-        subject: 'Welcome to FitZone - Your Account Details',
+        subject: 'FitZone Account Approved - Welcome to FitZone!',
         html: `
           <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-            <h2 style="color: #333;">Welcome to FitZone!</h2>
-            <p>Dear ${request.firstName} ${request.lastName},</p>
-            <p>You have joined FitZone membership successfully as a <strong>${roleMessage}</strong>.</p>
-            <p>Your account has been created with the following details:</p>
+            <h2 style="color: #333;">Your FitZone account is approved!</h2>
+            <p>Hi ${request.firstName} ${request.lastName},</p>
+            <p>Great news — your FitZone request has been approved and your account is now active.</p>
+            <p><strong>Account details:</strong></p>
             <ul>
               <li><strong>Email:</strong> ${request.email}</li>
-              <li><strong>Role:</strong> ${roleMessage}</li>
-              <li><strong>Password:</strong> ${passwordToUse}</li>
+              <li><strong>Role:</strong> ${finalRoleMessage}</li>
+              ${passwordToUse ? `<li><strong>Password:</strong> ${passwordToUse}</li>` : ''}
             </ul>
             ${request.isMembershipRequest ? `<p><strong>Membership Plan:</strong> ${request.membershipPlan}</p>
               <p><strong>Payment ID:</strong> ${request.paymentId}</p>
               <p><strong>Order ID:</strong> ${request.orderId}</p>
               <p><strong>Request Code:</strong> ${request.requestCode}</p>` : ''}
-            <p>Please log in to your dashboard using your email and the password above.</p>
-            <p>You can change your password after logging in for the first time.</p>
+            <p>Please log in to your dashboard using your FitZone email${passwordToUse ? ' and the password above' : ' and your existing password'}.</p>
+            ${passwordToUse ? '<p>You can change your password after logging in for the first time.</p>' : '<p>If you have any trouble logging in, please contact support.</p>'}
+            <p>Welcome to FitZone!</p>
             <p>Best regards,<br>FitZone Team</p>
           </div>
         `
@@ -1046,18 +1065,27 @@ app.post("/admin/approve-request/:requestId", async (req, res) => {
 
       const emailResult = await emailTransporter.sendMail(mailOptions);
       console.log(`✅ Welcome email sent successfully to ${request.email}`);
-      console.log('Message ID:', emailResult.messageId);
+      if (emailResult && emailResult.messageId) {
+        console.log('Message ID:', emailResult.messageId);
+      }
     } catch (emailError) {
       console.error('❌ Error sending welcome email:', emailError);
       console.error('Email details:', {
         from: emailFrom,
         to: request.email,
-        subject: 'Welcome to FitZone - Your Account Details'
+        subject: 'FitZone Account Approved - Welcome to FitZone!'
       });
       // Don't fail the request if email fails, but log it
     }
 
-    res.json({ success: true, message: "User created successfully", user, generatedPassword });
+    res.json({
+      success: true,
+      message: userExists ? "User updated and approved successfully" : "User created successfully",
+      user,
+      generatedPassword,
+      emailEnabled: Boolean(emailEnabled),
+      emailNote: emailEnabled ? 'Welcome email has been sent.' : 'Email is not configured. Set EMAIL_USER and EMAIL_PASS to send real emails.'
+    });
   } catch (error) {
     console.error("Error approving request:", error);
     if (error.name === 'ValidationError') {
