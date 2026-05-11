@@ -947,19 +947,32 @@ app.post("/admin/approve-request/:requestId", async (req, res) => {
       }
 
       if (!user) {
-        return res.status(404).json({ success: false, message: "Associated user not found" });
+        // Create a new user for a membership request if one does not exist
+        const displayName = `${request.firstName || ''} ${request.lastName || ''}`.trim() || request.email;
+        passwordToUse = passwordToUse || Math.random().toString(36).slice(-10) + 'A1!';
+        const hashedPassword = await bcrypt.hash(passwordToUse, 10);
+        user = new User({
+          displayName,
+          email: request.email,
+          password: hashedPassword,
+          role: 'member',
+          isVerified: true
+        });
+        await user.save();
+        generatedPassword = passwordToUse;
+      } else {
+        userExists = true;
+        if (!user.password || typeof user.password !== 'string' || user.password.length === 0) {
+          generatedPassword = Math.random().toString(36).slice(-10) + 'A1!';
+          passwordToUse = generatedPassword;
+          user.password = await bcrypt.hash(passwordToUse, 10);
+        }
+        user.isVerified = true;
+        if (user.role !== 'admin') {
+          user.role = 'member';
+        }
+        await user.save();
       }
-
-      userExists = true;
-
-      if (!user.password || typeof user.password !== 'string' || user.password.length === 0) {
-        generatedPassword = Math.random().toString(36).slice(-10) + 'A1!';
-        passwordToUse = generatedPassword;
-        user.password = await bcrypt.hash(passwordToUse, 10);
-      }
-
-      user.isVerified = true;
-      await user.save();
 
       const renewalDate = new Date();
       renewalDate.setMonth(renewalDate.getMonth() + 1);
