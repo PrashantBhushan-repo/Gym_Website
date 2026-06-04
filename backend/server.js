@@ -11,12 +11,40 @@ import dns from "node:dns";
 import crypto from "node:crypto";
 import Razorpay from "razorpay";
 import nodemailer from "nodemailer";
+import fs from "fs";
+import path from "path";
+import { fileURLToPath } from "url";
 import shopRoutes from "./routes/shopRoutes.js";
 import aiRoutes from "./routes/aiRoutes.js";
 import GymCenter from "./models/GymCenter.js";
 
 // Load environment variables
 dotenv.config();
+
+// Setup __dirname for ES modules
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const docsDirectory = path.resolve(__dirname, './knowledge_docs');
+
+// Category and tag maps for knowledge base
+const categoryMap = {
+  'about_fitzone.md': 'about',
+  'membership_plans.md': 'membership',
+  'services_and_classes.md': 'services',
+  'contact_and_location.md': 'contact',
+  'shop_and_products.md': 'shop',
+  'programs_and_policies.md': 'programs',
+  'faq_and_support.md': 'faq'
+};
+
+const tagMap = {
+  about_fitzone: ['about', 'story', 'vision', 'values'],
+  membership_plans: ['membership', 'pricing', 'plans', 'benefits'],
+  services_and_classes: ['services', 'classes', 'training', 'fitness'],
+  contact_and_location: ['contact', 'location', 'hours', 'support'],
+  shop_and_products: ['shop', 'products', 'checkout', 'ecommerce'],
+  programs_and_policies: ['programs', 'policies', 'nutrition', 'training'],
+  faq_and_support: ['faq', 'support', 'help', 'membership']
+};
 
 if (process.env.DNS_SERVERS) {
   dns.setServers(process.env.DNS_SERVERS.split(",").map(server => server.trim()).filter(Boolean));
@@ -1593,6 +1621,58 @@ app.get("/dashboard/admin", async (req, res) => {
 
 // ========== END DASHBOARD ROUTES ==========
 
-app.listen(port, () => {
+// ========== AUTO-INITIALIZE KNOWLEDGE BASE ==========
+// This function runs on startup and populates the knowledge base if it's empty
+async function initializeKnowledgeBaseIfEmpty() {
+  try {
+    const KnowledgeBase = (await import('./models/KnowledgeBase.js')).default;
+    const RAGService = (await import('./services/ragService.js')).default;
+    
+    // Check if knowledge base has any documents
+    const existingDocs = await KnowledgeBase.countDocuments();
+    
+    if (existingDocs === 0) {
+      console.log('\n📚 Knowledge base is empty. Initializing with gym knowledge documents...');
+      
+      const ragService = new RAGService();
+      await ragService.initialize();
+      
+      const files = fs.readdirSync(docsDirectory).filter(file => file.endsWith('.md'));
+      console.log(`Found ${files.length} knowledge documents`);
+      
+      let docCount = 0;
+      for (const file of files) {
+        try {
+          const filePath = path.join(docsDirectory, file);
+          const content = fs.readFileSync(filePath, 'utf8').trim();
+          const title = file.replace(/\.md$/, '').replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+          const category = categoryMap[file] || 'general';
+          const tags = tagMap[file.replace(/\.md$/, '')] || ['gym', 'fitness', 'knowledge'];
+          
+          await ragService.addDocument(title, content, category, tags);
+          console.log(`✓ Initialized: ${title}`);
+          docCount++;
+        } catch (error) {
+          console.error(`✗ Failed to initialize: ${file}`, error.message);
+        }
+      }
+      
+      console.log(`\n✅ Knowledge base initialized with ${docCount} documents!`);
+    } else {
+      console.log(`\n✅ Knowledge base already populated with ${existingDocs} documents`);
+    }
+  } catch (error) {
+    console.error('Error during knowledge base initialization:', error);
+    console.log('⚠️  Continuing without auto-initialization. You can manually initialize via POST /api/knowledge/reindex');
+  }
+}
+
+// Attach initialization to server startup
+app.listen(port, async () => {
   console.log(`Backend server running on port ${port}`);
+  
+  // Wait a moment for MongoDB to fully initialize, then initialize knowledge base
+  setTimeout(() => {
+    initializeKnowledgeBaseIfEmpty().catch(err => console.error('Knowledge base init error:', err));
+  }, 1000);
 });
