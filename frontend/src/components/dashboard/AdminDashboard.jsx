@@ -249,7 +249,7 @@ const AdminDashboard = ({ user }) => {
       const result = await response.json();
       if (response.ok) {
         const passwordMessage = result.generatedPassword ? ` Generated password: ${result.generatedPassword}` : '';
-        setActionMessage({ type: 'success', text: `Request approved and user created successfully.${passwordMessage}` });
+        setActionMessage({ type: 'success', text: `${result.message || 'Request approved successfully'}.${passwordMessage}` });
         setRequestPassword((prev) => ({ ...prev, [requestId]: '' }));
         fetchDashboardData();
         fetchPendingRequests();

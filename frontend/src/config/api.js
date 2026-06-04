@@ -1,7 +1,13 @@
-const isLocalDev = typeof window !== 'undefined' && ['localhost', '127.0.0.1'].includes(window.location.hostname);
+const hostname = typeof window !== 'undefined' ? window.location.hostname : '';
+const isLocalDev = ['localhost', '127.0.0.1'].includes(hostname);
+const productionFallbacks = {
+  'gym-website-eight-plum.vercel.app': 'https://gym-website-xtj6.onrender.com',
+  'gym-website-xtj6.onrender.com': 'https://gym-website-xtj6.onrender.com'
+};
+
 const API_BASE_URL = isLocalDev
   ? 'http://localhost:5000'
-  : process.env.REACT_APP_API_URL || 'http://localhost:5000';
+  : process.env.REACT_APP_API_URL || productionFallbacks[hostname] || 'https://gym-website-xtj6.onrender.com';
 
 export const apiUrl = (path) => {
   if (!path.startsWith('/')) {
