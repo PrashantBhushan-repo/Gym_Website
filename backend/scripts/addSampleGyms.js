@@ -1,29 +1,10 @@
 import mongoose from 'mongoose';
 import dotenv from 'dotenv';
+import GymCenter from '../models/GymCenter.js';
 
 dotenv.config();
 
 const mongoURI = process.env.MONGO_URI || process.env.MONGODB_URI || "mongodb://localhost:27017/gym_website";
-
-// Gym Center Schema (copied from server.js)
-const gymCenterSchema = new mongoose.Schema({
-  name: { type: String, required: true },
-  address: { type: String, required: true },
-  city: { type: String, required: true },
-  state: { type: String, required: true },
-  postalCode: { type: String, required: true },
-  latitude: { type: Number, required: true },
-  longitude: { type: Number, required: true },
-  phone: { type: String, required: true },
-  email: { type: String, required: true },
-  contactPerson: { type: String, required: true },
-  collaborationTerms: { type: String, required: true },
-  facilityDescription: { type: String },
-  isActive: { type: Boolean, default: true },
-  createdAt: { type: Date, default: Date.now }
-});
-
-const GymCenter = mongoose.model('GymCenter', gymCenterSchema);
 
 const addSampleGymCenters = async () => {
   try {

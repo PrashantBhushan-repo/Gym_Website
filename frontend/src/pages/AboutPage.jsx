@@ -1,8 +1,16 @@
 import React from 'react';
 import './AboutPage.css';
 import './AboutPage.css';
+import usePageKnowledge from '../hooks/usePageKnowledge';
 
 const AboutPage = () => {
+  usePageKnowledge({
+    slug: 'about',
+    title: 'About FitZone',
+    category: 'about',
+    tags: ['about', 'story', 'mission', 'vision', 'values'],
+    content: `About FitZone explains the gym's origins, mission, vision and core values. It describes the fitness center's evolution from a small 3,000 sq ft facility in 2015 to a premier 25,000 sq ft fitness destination with more than 5,000 active members. FitZone is built on a community-centered, inclusive environment with expert support, premium equipment, and a focus on excellence, integrity, innovation, and member success.`
+  });
   return (
     <div className="about-page">
       <section className="page-hero">

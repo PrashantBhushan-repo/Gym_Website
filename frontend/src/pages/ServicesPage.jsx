@@ -1,8 +1,16 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import './ServicesPage.css';
+import usePageKnowledge from '../hooks/usePageKnowledge';
 
 const ServicesPage = () => {
+  usePageKnowledge({
+    slug: 'services',
+    title: 'FitZone Services',
+    category: 'services',
+    tags: ['services', 'training', 'classes', 'personal training', 'fitness'],
+    content: `FitZone Services page describes personal training, group fitness classes, and flexible scheduling. It highlights one-on-one coaching with custom plans, nutrition guidance, progress tracking, and group classes such as HIIT, yoga flow, strength circuit, spin, boxing fitness, and Pilates. Members can book sessions, view schedules, and contact the gym for support.`
+  });
   const classes = [
     { name: 'HIIT Training', description: 'High-intensity interval training to burn calories and build endurance', duration: '45 min', level: 'All levels' },
     { name: 'Yoga Flow', description: 'Improve flexibility, balance, and mental clarity', duration: '60 min', level: 'Beginner-Advanced' },

@@ -12,6 +12,8 @@ import crypto from "node:crypto";
 import Razorpay from "razorpay";
 import nodemailer from "nodemailer";
 import shopRoutes from "./routes/shopRoutes.js";
+import aiRoutes from "./routes/aiRoutes.js";
+import GymCenter from "./models/GymCenter.js";
 
 // Load environment variables
 dotenv.config();
@@ -20,13 +22,22 @@ if (process.env.DNS_SERVERS) {
   dns.setServers(process.env.DNS_SERVERS.split(",").map(server => server.trim()).filter(Boolean));
 }
 
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('Unhandled Rejection at:', promise, 'reason:', reason);
+});
+
+process.on('uncaughtException', (error) => {
+  console.error('Uncaught Exception:', error);
+  process.exit(1);
+});
+
 const app = express();
 const port = process.env.PORT || 5000;
 const mongoURI = process.env.MONGO_URI || process.env.MONGODB_URI || "mongodb://localhost:27017/gym_website";
 
 // Middleware
 app.set('trust proxy', 1);
-const rawFrontendUrls = process.env.FRONTEND_URL || "http://localhost:3000,https://your-vercel-app.vercel.app";
+const rawFrontendUrls = process.env.FRONTEND_URL || "http://localhost:3000,http://localhost:4000,https://your-vercel-app.vercel.app";
 const allowedOrigins = rawFrontendUrls
   .split(',')
   .map((origin) => origin.trim())
@@ -36,6 +47,12 @@ if (!allowedOrigins.includes('http://localhost:3000')) {
 }
 if (!allowedOrigins.includes('http://127.0.0.1:3000')) {
   allowedOrigins.push('http://127.0.0.1:3000');
+}
+if (!allowedOrigins.includes('http://localhost:4000')) {
+  allowedOrigins.push('http://localhost:4000');
+}
+if (!allowedOrigins.includes('http://127.0.0.1:4000')) {
+  allowedOrigins.push('http://127.0.0.1:4000');
 }
 app.use(cors({
   origin: (origin, callback) => {
@@ -74,6 +91,7 @@ app.use(session({
 app.use(passport.initialize());
 app.use(passport.session());
 app.use('/shop', shopRoutes);
+app.use('/api', aiRoutes);
 
 // MongoDB connection
 mongoose.connect(mongoURI, {
@@ -264,28 +282,6 @@ const paymentSchema = new mongoose.Schema({
 });
 
 const Payment = mongoose.model("Payment", paymentSchema);
-
-// Collaborated Gym Center Schema
-const gymCenterSchema = new mongoose.Schema({
-  name: { type: String, required: true },
-  address: { type: String, required: true },
-  city: { type: String, required: true },
-  state: { type: String, required: true },
-  postalCode: { type: String, required: true },
-  latitude: { type: Number, required: true }, // For distance calculation
-  longitude: { type: Number, required: true }, // For distance calculation
-  phone: { type: String, required: true },
-  email: { type: String, required: true },
-  contactPerson: { type: String, required: true },
-  collaborationTerms: { type: String, required: true }, // Terms and conditions
-  facilityDescription: { type: String }, // Brief description of facilities
-  isActive: { type: Boolean, default: true },
-  addedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
-  createdAt: { type: Date, default: Date.now },
-  updatedAt: { type: Date, default: Date.now }
-});
-
-const GymCenter = mongoose.model("GymCenter", gymCenterSchema);
 
 // Passport Google Strategy
 // Passport Google Strategy (only if credentials are provided)

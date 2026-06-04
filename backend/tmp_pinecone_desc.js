@@ -1,0 +1,1 @@
+﻿import dotenv from "dotenv"; dotenv.config({ path: "./.env" }); import { Pinecone } from "@pinecone-database/pinecone"; const pc = new Pinecone({ apiKey: process.env.PINECONE_API_KEY, environment: process.env.PINECONE_ENVIRONMENT }); const desc = await pc.describeIndex({ indexName: "gym-knowledge" }); console.log(JSON.stringify(desc, null, 2));
