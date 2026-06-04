@@ -1,0 +1,10 @@
+﻿import dotenv from "dotenv";
+dotenv.config({ path: "./.env" });
+import { GoogleGenerativeAI } from '@google/generative-ai';
+const apiKey = process.env.GEMINI_API_KEY;
+const genAI = new GoogleGenerativeAI(apiKey);
+const modelName = 'models/gemini-embedding-2';
+const model = genAI.getGenerativeModel({ model: modelName });
+console.log('proto methods', Object.getOwnPropertyNames(Object.getPrototypeOf(model)).sort());
+const result = await model.embedContent(['Hello world']);
+console.dir(result, { depth: 5 });

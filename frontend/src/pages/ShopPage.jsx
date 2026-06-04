@@ -2,50 +2,90 @@ import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import './ShopPage.css';
 
-const PRODUCTS = [
-  {
-    id: 'prod-1',
-    name: 'Adjustable Dumbbell Set',
-    description: 'Lightweight, space-saving dumbbells for strength training at home.',
-    price: 2999,
-    stock: 15
-  },
-  {
-    id: 'prod-2',
-    name: 'Premium Yoga Mat',
-    description: 'Non-slip exercise mat with extra cushioning for comfort.',
-    price: 1299,
-    stock: 20
-  },
-  {
-    id: 'prod-3',
-    name: 'Resistance Band Kit',
-    description: 'Five-band resistance set for stretching, HIIT, and fitness routines.',
-    price: 799,
-    stock: 30
-  },
-  {
-    id: 'prod-4',
-    name: 'Gym Gloves',
-    description: 'Breathable gloves for secure weightlifting and protection.',
-    price: 699,
-    stock: 25
-  },
-  {
-    id: 'prod-5',
-    name: 'Smart Water Bottle',
-    description: 'LED hydration bottle that reminds you to drink water on time.',
-    price: 1099,
-    stock: 18
-  },
-  {
-    id: 'prod-6',
-    name: 'Workout Shaker Bottle',
-    description: 'Leak-proof shaker with measurement markers and storage.',
-    price: 499,
-    stock: 40
-  }
+// const PRODUCTS = [
+//   {
+//     id: 'prod-1',
+//     name: 'Adjustable Dumbbell Set',
+//     description: 'Lightweight, space-saving dumbbells for strength training at home.',
+//     price: 2999,
+//     stock: 15
+//   },
+//   {
+//     id: 'prod-2',
+//     name: 'Premium Yoga Mat',
+//     description: 'Non-slip exercise mat with extra cushioning for comfort.',
+//     price: 1299,
+//     stock: 20
+//   },
+//   {
+//     id: 'prod-3',
+//     name: 'Resistance Band Kit',
+//     description: 'Five-band resistance set for stretching, HIIT, and fitness routines.',
+//     price: 799,
+//     stock: 30
+//   },
+//   {
+//     id: 'prod-4',
+//     name: 'Gym Gloves',
+//     description: 'Breathable gloves for secure weightlifting and protection.',
+//     price: 699,
+//     stock: 25
+//   },
+//   {
+//     id: 'prod-5',
+//     name: 'Smart Water Bottle',
+//     description: 'LED hydration bottle that reminds you to drink water on time.',
+//     price: 1099,
+//     stock: 18
+//   },
+//   {
+//     id: 'prod-6',
+//     name: 'Workout Shaker Bottle',
+//     description: 'Leak-proof shaker with measurement markers and storage.',
+//     price: 499,
+//     stock: 40
+//   }
+// ];
+
+
+
+const categories = [
+  "Whey Protein",
+  "Mass Gainer",
+  "Creatine",
+  "Pre Workout",
+  "BCAA",
+  "EAA",
+  "Fish Oil",
+  "Multivitamin",
+  "Protein Bar",
+  "Peanut Butter",
+  "Oats",
+  "Gym Gloves",
+  "Yoga Mat",
+  "Resistance Band",
+  "Dumbbell",
+  "Kettlebell",
+  "Shaker Bottle",
+  "Water Bottle",
+  "Gym Bag",
+  "Skipping Rope",
+  "Weight Belt",
+  "T-Shirt",
+  "Joggers",
+  "Compression Wear",
+  "Foam Roller"
 ];
+
+const PRODUCTS = Array.from({ length: 250 }, (_, index) => ({
+  id: `prod-${index + 1}`,
+  name: `${categories[index % categories.length]} ${index + 1}`,
+  description: `High-quality gym product for fitness enthusiasts.`,
+  price: Math.floor(Math.random() * 5000) + 300,
+  stock: Math.floor(Math.random() * 50) + 1,
+
+  image: `https://picsum.photos/400/300?random=${index + 1}`
+}));
 
 const loadCart = () => {
   const saved = localStorage.getItem('gymShopCart');
@@ -90,17 +130,49 @@ const ShopPage = () => {
 
       <div className="product-grid">
         {PRODUCTS.map((product) => (
+          // <div key={product.id} className="product-card">
+          //   <div className="product-header">
+          //     <h3>{product.name}</h3>
+          //     <span className="product-price">₹{product.price}</span>
+          //   </div>
+          //   <p>{product.description}</p>
+          //   <p className="product-stock">Stock: {product.stock}</p>
+          //   <button type="button" className="btn btn-secondary" onClick={() => addToCart(product)}>
+          //     Add to Cart
+          //   </button>
+          // </div>
+
+
           <div key={product.id} className="product-card">
-            <div className="product-header">
-              <h3>{product.name}</h3>
-              <span className="product-price">₹{product.price}</span>
-            </div>
-            <p>{product.description}</p>
-            <p className="product-stock">Stock: {product.stock}</p>
-            <button type="button" className="btn btn-secondary" onClick={() => addToCart(product)}>
-              Add to Cart
-            </button>
-          </div>
+
+  <img
+    src={product.image}
+    alt={product.name}
+    className="product-image"
+  />
+
+  <div className="product-header">
+    <h3>{product.name}</h3>
+    <span className="product-price">
+      ₹{product.price}
+    </span>
+  </div>
+
+  <p>{product.description}</p>
+
+  <p className="product-stock">
+    Stock: {product.stock}
+  </p>
+
+  <button
+    type="button"
+    className="btn btn-secondary"
+    onClick={() => addToCart(product)}
+  >
+    Add To Cart
+  </button>
+
+</div>
         ))}
       </div>
 
